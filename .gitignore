@@ -12,6 +12,7 @@ target
 # Env
 .env
 .env.development
+.env.test
 .env.production
 
 # Db
