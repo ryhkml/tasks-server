@@ -9,12 +9,12 @@ import { zValidator } from "@hono/zod-validator";
 import { nanoid  } from "nanoid";
 import { ulid } from "ulid";
 
-import { ownerId } from "../schemas/auth";
 import { ownerName } from "../schemas/owner";
 import { tasksAuth } from "../utils/auth";
 import { query } from "../utils/db";
 
 export function owner(): Hono<Var, BlankSchema, "/"> {
+
 	const owner = new Hono<Var>();
 
 	owner.post(
@@ -66,11 +66,6 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 
 	owner.get(
 		"/:name",
-		zValidator("header", ownerId, (result) => {
-			if (!result.success) {
-				throw new HTTPException(403);
-			}
-		}),
 		tasksAuth(),
 		zValidator("param", ownerName, (result) => {
 			if (!result.success) {
@@ -83,7 +78,7 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 			}
 		}),
 		(c) => {
-			const id = c.req.valid("header")["x-tasks-owner-id"];
+			const id = c.get("ownerId");
 			const name = c.req.valid("param").name;
 			const owner = query<Omit<OwnerTable, "key">>(`
 				SELECT id, name, createdAt, tasksInQueue, tasksInQueueLimit FROM owner 
@@ -98,11 +93,6 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 
 	owner.delete(
 		"/:name",
-		zValidator("header", ownerId, (result) => {
-			if (!result.success) {
-				throw new HTTPException(403);
-			}
-		}),
 		tasksAuth(),
 		zValidator("param", ownerName, (result) => {
 			if (!result.success) {
@@ -115,7 +105,7 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 			}
 		}),
 		(c) => {
-			const id = c.req.valid("header")["x-tasks-owner-id"];
+			const id = c.get("ownerId");
 			const name = c.req.valid("param").name;
 			const owner = query<{ deleted: "Done" }>(`
 				DELETE FROM owner 
