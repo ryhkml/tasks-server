@@ -1,0 +1,17 @@
+{
+	"editor.detectIndentation": false,
+	"editor.insertSpaces": false,
+	"editor.tabSize": 4,
+	"files.insertFinalNewline": false,
+	"files.trimFinalNewlines": false,
+	"[nix]": {
+		"editor.insertSpaces": true,
+		"editor.tabSize": 2
+	},
+	"[yaml]": {
+		"editor.insertSpaces": true,
+		"editor.tabSize": 2
+	},
+	"javascript.inlayHints.parameterNames.enabled": "all",
+	"typescript.inlayHints.parameterNames.enabled": "all"
+}

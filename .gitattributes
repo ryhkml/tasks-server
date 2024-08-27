@@ -1,0 +1,2 @@
+# Don't count tests in the language stats
+src/**/*.test.ts linguist-documentation

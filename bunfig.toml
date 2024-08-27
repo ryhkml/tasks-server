@@ -1,0 +1,8 @@
+mosl = true
+
+[install.cache]
+disable = true
+
+[test]
+coverage = true
+coverageThreshold = 0.9

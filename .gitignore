@@ -1,0 +1,31 @@
+# Deps
+node_modules
+
+# Vscode
+!.vscode
+.vscode/*
+!.vscode/settings.json
+
+# Output
+target
+
+# Env
+.env
+.env.development
+.env.production
+
+# Db
+!.database
+.database/*
+!.database/.gitkeep
+
+# TLS/SSL
+!tls
+tls/*
+!tls/.gitkeep
+
+# Etc
+rest.http
+debug.ts
+note.txt
+tasks-server
