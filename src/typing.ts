@@ -28,6 +28,7 @@ declare module "bun" {
 
 type Var = {
 	Variables: {
+		ownerId: string;
 		todayAt: number;
 	}
 }
