@@ -2,15 +2,11 @@ import { env, password } from "bun";
 import { beforeAll, describe, expect, it } from "bun:test";
 
 import { Hono } from "hono";
-import { HTTPException } from "hono/http-exception";
-
-import { zValidator } from "@hono/zod-validator";
 import { nanoid } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
 
 import { tasksAuth } from "./auth";
-import { ownerId as ownerIdSchema } from "../schemas/auth";
 import { query } from "./db";
 
 describe("TEST AUTH", () => {
@@ -26,11 +22,6 @@ describe("TEST AUTH", () => {
 	// Register path for auth
 	app.get(
 		"/test/auth",
-		zValidator("header", ownerIdSchema, (result) => {
-			if (!result.success) {
-				throw new HTTPException(403);
-			}
-		}),
 		tasksAuth(pathTasksDb),
 		(c) => {
 			return c.text("Done");
