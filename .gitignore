@@ -25,6 +25,7 @@ tls/*
 !tls/.gitkeep
 
 # Etc
+diff.txt
 rest.http
 debug.ts
 note.txt
