@@ -1,28 +1,38 @@
-import { env, password } from "bun";
+import { password } from "bun";
 import { beforeAll, describe, expect, it } from "bun:test";
 
 import { Hono } from "hono";
+import { prettyJSON } from "hono/pretty-json";
+
 import { nanoid } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
 
 import { tasksAuth } from "./auth";
 import { query } from "./db";
+import { exceptionFilter } from "../exception/exception-filter";
 
 describe("TEST AUTH", () => {
+	
 	const todayAt = Date.now();
 	const ownerName = "dummy";
 	let ownerId = "";
 	let key = "";
 	let secretKey = "";
 
-	const pathTasksDb = env.PATH_SQLITE.replace(".db", "-test.db");
+	const api = new Hono<Var>();
 
-	const app = new Hono();
-	// Register path for auth
-	app.get(
+	api.use(async (c, next) => {
+		c.set("todayAt", Date.now());
+		await next();
+	});
+	api.use(prettyJSON({ space: 4 }));
+
+	api.onError(exceptionFilter);
+
+	api.get(
 		"/test/auth",
-		tasksAuth(pathTasksDb),
+		tasksAuth(),
 		(c) => {
 			return c.text("Done");
 		}
@@ -36,7 +46,7 @@ describe("TEST AUTH", () => {
 		query<{ id: string }>(`
 			INSERT INTO owner (id, key, name, createdAt)
 			VALUES ('${ownerId}', '${secretKey}', '${ownerName}', ${todayAt})
-		`, pathTasksDb);
+		`);
 	});
 	
 	it("should successfully validate owner id and return a ULID", () => {
@@ -56,7 +66,7 @@ describe("TEST AUTH", () => {
 	});
 
 	it("should successfully authentication process http 200", async () => {
-		const res = await app.request("/test/auth", {
+		const res = await api.request("/test/auth", {
 			method: "GET",
 			cache: "no-cache",
 			headers: new Headers({
@@ -69,7 +79,7 @@ describe("TEST AUTH", () => {
 	});
 
 	it("should unsuccessfully authentication process with an invalid key", async () => {
-		const res = await app.request("/test/auth", {
+		const res = await api.request("/test/auth", {
 			method: "GET",
 			cache: "no-cache",
 			headers: new Headers({
@@ -82,7 +92,7 @@ describe("TEST AUTH", () => {
 	});
 
 	it("should unsuccessfully authentication process with an invalid owner id", async () => {
-		const res = await app.request("/test/auth", {
+		const res = await api.request("/test/auth", {
 			method: "GET",
 			cache: "no-cache",
 			headers: new Headers({

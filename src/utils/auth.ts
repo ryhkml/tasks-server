@@ -12,7 +12,7 @@ import { z } from "zod";
 import { query } from "./db";
 import { ownerId } from "../schemas/auth";
 
-export function tasksAuth(path?: string): MiddlewareHandler {
+export function tasksAuth(): MiddlewareHandler {
 	return every(
 		zValidator("header", ownerId, (result) => {
 			if (!result.success) {
@@ -30,7 +30,7 @@ export function tasksAuth(path?: string): MiddlewareHandler {
 				const result = schema.safeParse(token);
 				if (result.success) {
 					const id = c.get("ownerId");
-					const owner = query<{ key: string }>(`SELECT key FROM owner WHERE id = '${id}'`, path);
+					const owner = query<{ key: string }>(`SELECT key FROM owner WHERE id = '${id}'`);
 					if (owner == null) {
 						throw new HTTPException(403);
 					}
