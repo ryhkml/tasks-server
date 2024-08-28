@@ -3,9 +3,9 @@ import { Database } from "bun:sqlite";
 
 import { isEmpty } from "./common";
 
-export function query<T>(raw: string, path = env.PATH_SQLITE): T[] | null {
+export function query<T>(raw: string): T[] | null {
 	const options = ["-bail", "-nofollow", "-noheader", "-json"];
-	const { stdout, success } = spawnSync(["sqlcipher", path, ...options, `PRAGMA key = '${env.PRAGMA_KEY_SQLITE}'`, raw], {
+	const { stdout, success } = spawnSync(["sqlcipher", env.PATH_SQLITE, ...options, `PRAGMA key = '${env.PRAGMA_KEY_SQLITE}'`, raw], {
 		env: {}
 	});
 	if (success) {
