@@ -1,6 +1,8 @@
 import { env } from "bun";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
+import { rm } from "node:fs/promises";
+
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 
@@ -68,8 +70,9 @@ describe("TEST OWNER", () => {
 				expect(owner).toHaveProperty("action");
 				expect(owner).toHaveProperty("message");
 			});
-			afterEach(() => {
+			afterEach(async () => {
 				env.PATH_SQLITE = save;
+				await rm("undefined", { force: true });
 			});
 		});
 
