@@ -46,8 +46,10 @@ describe("TEST DATABASE", () => {
 		});
 
 		it("should successfully query to the tasks database", () => {
-			const res = query<Omit<OwnerTable, "key">>("SELECT * FROM owner");
-			expect(res).toBeNull();
+			const res = query<{ status: "Ok" }>("SELECT 'Ok' AS status");
+			expect(res).not.toBeNull();
+			// @ts-expect-error
+			expect(res[0]).toEqual({ status: "Ok" });
 		});
 
 		it("should successfully query to the timeframe database", async () => {
