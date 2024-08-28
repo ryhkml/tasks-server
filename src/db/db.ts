@@ -1,7 +1,7 @@
 import { env, spawnSync } from "bun";
 import { Database } from "bun:sqlite";
 
-import { isEmpty } from "./common";
+import { isEmpty } from "../utils/common";
 
 export function query<T>(raw: string): T[] | null {
 	const options = ["-bail", "-nofollow", "-noheader", "-json"];

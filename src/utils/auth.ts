@@ -9,7 +9,7 @@ import { HTTPException } from "hono/http-exception";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 
-import { query } from "./db";
+import { query } from "../db/db";
 import { ownerId } from "../schemas/auth";
 
 export function tasksAuth(): MiddlewareHandler {

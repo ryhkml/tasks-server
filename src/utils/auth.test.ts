@@ -9,7 +9,7 @@ import { ulid } from "ulid";
 import { z } from "zod";
 
 import { tasksAuth } from "./auth";
-import { query } from "./db";
+import { query } from "../db/db";
 import { exceptionFilter } from "../exception/exception-filter";
 
 describe("TEST AUTH", () => {

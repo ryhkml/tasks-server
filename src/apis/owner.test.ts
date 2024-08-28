@@ -8,7 +8,7 @@ import { prettyJSON } from "hono/pretty-json";
 
 import { owner } from "./owner";
 import { exceptionFilter } from "../exception/exception-filter";
-import { query } from "../utils/db";
+import { query } from "../db/db";
 
 describe("TEST OWNER", () => {
 

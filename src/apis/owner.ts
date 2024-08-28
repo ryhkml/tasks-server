@@ -11,7 +11,7 @@ import { ulid } from "ulid";
 
 import { ownerName } from "../schemas/owner";
 import { tasksAuth } from "../utils/auth";
-import { query } from "../utils/db";
+import { query } from "../db/db";
 
 export function owner(): Hono<Var, BlankSchema, "/"> {
 

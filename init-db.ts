@@ -3,7 +3,7 @@ import { argv, env, file, sleep, spawnSync } from "bun";
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 
-import { timeframeDb } from "./src/utils/db";
+import { timeframeDb } from "./src/db/db";
 
 async function init(): Promise<void> {
 	try {
@@ -27,7 +27,7 @@ async function init(): Promise<void> {
 			console.warn("Timeframe DB is already exists");
 		} else {
 			const db = timeframeDb(pathTimeframeDb);
-			const raw = await file("src/sql/timeframe.sql").text();
+			const raw = await file("src/db/sql/timeframe.sql").text();
 			db.run(raw);
 			db.run("INSERT INTO timeframe (id, lastRecordAt) VALUES (?1, ?2)", [1, Date.now()]);
 			db.close();
@@ -39,7 +39,7 @@ async function init(): Promise<void> {
 			console.warn("Tasks DB is already exists");
 		} else {
 			const options = ["-bail", "-nofollow", "-noheader", "-json"];
-			const { stderr, success } = spawnSync(["sqlcipher", env.PATH_SQLITE, ...options, `PRAGMA key = '${env.PRAGMA_KEY_SQLITE}'`, ".read src/sql/tasks.sql"], {
+			const { stderr, success } = spawnSync(["sqlcipher", env.PATH_SQLITE, ...options, `PRAGMA key = '${env.PRAGMA_KEY_SQLITE}'`, ".read src/db/sql/tasks.sql"], {
 				stdout: null,
 				env: {}
 			});
