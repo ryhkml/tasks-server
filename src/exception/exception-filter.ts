@@ -4,7 +4,7 @@ import { HTTPResponseError, TypedResponse } from "hono/types";
 import { StatusCode } from "hono/utils/http-status";
 import { InvalidJSONValue, JSONParsed, JSONValue, SimplifyDeepArray } from "hono/utils/types";
 
-type JSONRespondReturn<T extends JSONValue | SimplifyDeepArray<unknown> | InvalidJSONValue, U extends StatusCode> = Response & TypedResponse<SimplifyDeepArray<T> extends JSONValue ? JSONValue extends SimplifyDeepArray<T> ? never : JSONParsed<T> : never, U, 'json'>;
+type JSONRespondReturn<T extends JSONValue | SimplifyDeepArray<unknown> | InvalidJSONValue, U extends StatusCode> = Response & TypedResponse<SimplifyDeepArray<T> extends JSONValue ? JSONValue extends SimplifyDeepArray<T> ? never : JSONParsed<T> : never, U, "json">;
 type JSONRespondExceptionFilter = JSONRespondReturn<{ action: string, message: string | object }, StatusCode>;
 
 export function exceptionFilter(e: Error | HTTPResponseError, c: Context): JSONRespondExceptionFilter {
