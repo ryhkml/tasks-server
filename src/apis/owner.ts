@@ -10,7 +10,7 @@ import { nanoid  } from "nanoid";
 import { ulid } from "ulid";
 
 import { ownerName } from "../schemas/owner";
-import { tasksAuth } from "../utils/auth";
+import { tasksAuth } from "../auth/auth";
 import { query } from "../db/db";
 
 export function owner(): Hono<Var, BlankSchema, "/"> {
