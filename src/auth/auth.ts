@@ -7,10 +7,11 @@ import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 
 import { zValidator } from "@hono/zod-validator";
-import { z } from "zod";
 
-import { query } from "../db/db";
+import { tasksDb } from "../db/db";
 import { ownerId } from "../schemas/auth";
+
+const stmtKey = tasksDb.prepare<{ key: string }, string>("SELECT key FROM owner WHERE id = ?");
 
 export function tasksAuth(): MiddlewareHandler {
 	return every(
@@ -26,17 +27,12 @@ export function tasksAuth(): MiddlewareHandler {
 		}),
 		bearerAuth({
 			async verifyToken(token, c: Context<Var>) {
-				const schema = z.string().regex(/^[a-zA-Z0-9_-]{42}$/);
-				const result = schema.safeParse(token);
-				if (result.success) {
-					const id = c.get("ownerId");
-					const owner = query<{ key: string }>(`SELECT key FROM owner WHERE id = '${id}'`);
-					if (owner == null) {
-						throw new HTTPException(403);
-					}
-					return await password.verify(token, owner[0].key);
+				const id = c.get("ownerId");
+				const owner = stmtKey.get(id);
+				if (owner == null) {
+					throw new HTTPException(403);
 				}
-				throw new HTTPException(403);
+				return await password.verify(token, owner.key);
 			}
 		})
 	);

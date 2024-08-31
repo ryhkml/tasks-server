@@ -9,7 +9,7 @@ import { ulid } from "ulid";
 import { z } from "zod";
 
 import { tasksAuth } from "./auth";
-import { query } from "../db/db";
+import { tasksDb } from "../db/db";
 import { exceptionFilter } from "../exception/exception-filter";
 
 describe("TEST AUTH", () => {
@@ -43,10 +43,12 @@ describe("TEST AUTH", () => {
 		key = nanoid(42);
 		secretKey = await password.hash(key);
 		// Register owner
-		query<{ id: string }>(`
-			INSERT INTO owner (id, key, name, createdAt)
-			VALUES ('${ownerId}', '${secretKey}', '${ownerName}', ${todayAt})
-		`);
+		tasksDb.run("INSERT INTO owner (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [
+			ownerId,
+			secretKey,
+			ownerName,
+			todayAt
+		]);
 	});
 	
 	it("should successfully validate owner id and return a ULID", () => {
