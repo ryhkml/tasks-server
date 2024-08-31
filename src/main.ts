@@ -1,19 +1,19 @@
 import { env, serve } from "bun";
 
+import { pid } from "node:process";
+
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
-import { requestId, RequestIdVariables } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import { BlankSchema } from "hono/types";
 
 import { owner } from "./apis/owner";
 import { exceptionFilter } from "./exception/exception-filter";
-import { toSafeInteger } from "./utils/common";
+import { safeInteger } from "./utils/common";
 
-const PORT = toSafeInteger(env.PORT) || 9220;
+function main(): Hono<Var, BlankSchema, "/"> {
 
-function main(): Hono<Var & { Variables: RequestIdVariables }, BlankSchema, "/"> {
-	const api = new Hono<Var & { Variables: RequestIdVariables }>();
+	const api = new Hono<Var>();
 
 	api.use(async (c, next) => {
 		c.set("todayAt", Date.now());
@@ -28,7 +28,6 @@ function main(): Hono<Var & { Variables: RequestIdVariables }, BlankSchema, "/">
 		xFrameOptions: "DENY",
 		xPermittedCrossDomainPolicies: false
 	}));
-	api.use(requestId());
 	api.use(prettyJSON({ space: 4 }));
 
 	api.notFound(() => new Response(null, { status: 404 }));
@@ -42,12 +41,12 @@ function main(): Hono<Var & { Variables: RequestIdVariables }, BlankSchema, "/">
 	return api;
 }
 
-serve({
+const server = serve({
 	fetch(req, server): Response | Promise<Response> {
 		return main().fetch(req, { ip: server.requestIP(req) });
 	},
-	port: PORT,
-	maxRequestBodySize: toSafeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768
+	port: safeInteger(env.PORT) || 9220,
+	maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768
 });
 
-console.log("Server listening on port", PORT);
+console.log(pid, "Server listening on", server.url.toString());
