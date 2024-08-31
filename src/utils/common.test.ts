@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { isEmpty, isPlainObject, isString, toSafeInteger } from "./common";
+import { isEmpty, isPlainObject, isString, safeInteger } from "./common";
 
 describe("TEST COMMON", () => {	
 	describe("lang", () => {
@@ -37,18 +37,18 @@ describe("TEST COMMON", () => {
 			});
 		});
 		
-		describe("toSafeInteger", () => {
+		describe("safeInteger", () => {
 			it("should return a positive integer value of 0 to MAX_SAFE_INTEGER", () => {
 				const value1 = 0;
 				const value2 = -1;
 				const value3 = 1.5;
 				const value4 = Number.MIN_SAFE_INTEGER;
 				const value5 = NaN;
-				const check1 = toSafeInteger(value1);
-				const check2 = toSafeInteger(value2);
-				const check3 = toSafeInteger(value3);
-				const check4 = toSafeInteger(value4);
-				const check5 = toSafeInteger(value5);
+				const check1 = safeInteger(value1);
+				const check2 = safeInteger(value2);
+				const check3 = safeInteger(value3);
+				const check4 = safeInteger(value4);
+				const check5 = safeInteger(value5);
 				expect(check1).toBe(0);
 				expect(check2).toBe(1);
 				expect(check2).toBeGreaterThanOrEqual(0);
@@ -94,7 +94,7 @@ describe("TEST COMMON", () => {
 	
 	describe("string", () => {
 		describe("isEmpty", () => {
-			it("Should return true if the data type is string", () => {
+			it("should return true if the data type is string", () => {
 				const value1 = "";
 				const value2 = "[]";
 				const check1 = isString(value1);
@@ -102,7 +102,7 @@ describe("TEST COMMON", () => {
 				expect(check1).toBeTrue();
 				expect(check2).toBeTrue();
 			});
-			it("Should return false if the data type is not string", () => {
+			it("should return false if the data type is not string", () => {
 				const value1 = undefined;
 				const value2 = null;
 				const value3 = 1;

@@ -25,7 +25,7 @@ export function isString<T>(v: T): boolean {
 	return false;
 }
 
-export function toSafeInteger<T>(v: T): number {
+export function safeInteger<T>(v: T): number {
 	const state = Math.abs(Number(v));
 	if (isNaN(state) || state == 0) {
 		return 0;
