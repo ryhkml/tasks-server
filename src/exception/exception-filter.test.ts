@@ -5,7 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { StatusCode } from "hono/utils/http-status";
 
 import { exceptionFilter } from "./exception-filter";
-import { toSafeInteger } from "../utils/common";
+import { safeInteger } from "../utils/common";
 
 describe("TEST EXCEPTION FILTER", () => {
 
@@ -17,7 +17,7 @@ describe("TEST EXCEPTION FILTER", () => {
 		throw new Error("Unknown");
 	});
 	api.all("/test/errors/:status", (c) => {
-		const status = toSafeInteger(c.req.param("status")) as StatusCode;
+		const status = safeInteger(c.req.param("status")) as StatusCode;
 		throw new HTTPException(status);
 	});
 
