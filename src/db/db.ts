@@ -1,23 +1,17 @@
-import { env, spawnSync } from "bun";
+import { env } from "bun";
 import { Database } from "bun:sqlite";
 
-import { isEmpty } from "../utils/common";
+import { existsSync } from "node:fs";
+import { exit } from "node:process";
 
-export function query<T>(raw: string): T[] | null {
-	const options = ["-bail", "-nofollow", "-noheader", "-json"];
-	const { stdout, success } = spawnSync(["sqlcipher", env.PATH_SQLITE, ...options, `PRAGMA key = '${env.PRAGMA_KEY_SQLITE}'`, raw], {
-		env: {}
-	});
-	if (success) {
-		const res = stdout.toString().trim().split("\n").filter((v, i) => !!v && i != 0).join("");
-		if (isEmpty(res)) {
-			return null;
-		}
-		return JSON.parse(res) as T[];
-	}
-	return null;
+if (!existsSync(env.PATH_SQLITE)) {
+	console.error("Tasks DB not found");
+	exit(1);
+}
+if (!existsSync(env.PATH_SQLITE.replace(".db", "-timeframe.db"))) {
+	console.error("Timeframe DB not found");
+	exit(1);
 }
 
-export function timeframeDb(path: string): Database {
-	return new Database(path, { strict: true });
-}
+export const tasksDb = new Database(env.PATH_SQLITE, { strict: true });
+export const timeframeDb = new Database(env.PATH_SQLITE.replace(".db", "-timeframe.db"), { strict: true });
