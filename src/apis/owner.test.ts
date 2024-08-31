@@ -1,14 +1,11 @@
-import { env } from "bun";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-
-import { rm } from "node:fs/promises";
 
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 
 import { owner } from "./owner";
+import { tasksDb } from "../db/db";
 import { exceptionFilter } from "../exception/exception-filter";
-import { query } from "../db/db";
 
 describe("TEST OWNER", () => {
 
@@ -48,35 +45,6 @@ describe("TEST OWNER", () => {
 		});
 
 		describe("", () => {
-			let save = env.PATH_SQLITE;
-			beforeEach(() => {
-				// @ts-expect-error
-				env.PATH_SQLITE = undefined;
-			});
-			it("should unsuccessfully register owner which indicates an internal server error", async () => {
-				const res = await api.request("/v1/owners/register", {
-					method: "POST",
-					cache: "no-cache",
-					body: JSON.stringify({
-						name: ownerName
-					}),
-					headers: new Headers({
-						"Cache-Control": "no-cache, no-store, must-revalidate",
-						"Content-Type": "application/json"
-					})
-				});
-				const owner = await res.json();
-				expect(res.status).toBe(500);
-				expect(owner).toHaveProperty("action");
-				expect(owner).toHaveProperty("message");
-			});
-			afterEach(async () => {
-				env.PATH_SQLITE = save;
-				await rm("undefined", { force: true });
-			});
-		});
-
-		describe("", () => {
 			let ownerId = "";
 			beforeEach(async () => {
 				const res = await api.request("/v1/owners/register", {
@@ -111,7 +79,7 @@ describe("TEST OWNER", () => {
 				expect(owner).toHaveProperty("message");
 			});
 			afterEach(() => {
-				query(`DELETE FROM owner WHERE id = '${ownerId}'`);
+				tasksDb.run("DELETE FROM owner WHERE id = ?", [ownerId]);
 			});
 		});
 
@@ -169,7 +137,7 @@ describe("TEST OWNER", () => {
 			});
 			const owner = await res.json();
 			expect(res.status).toBe(404);
-			expect(owner).toEqual({});
+			expect(owner).toStrictEqual({});
 		});
 
 		it("should successfully get owner", async () => {
@@ -213,7 +181,7 @@ describe("TEST OWNER", () => {
 
 		describe("", () => {
 			beforeEach(() => {
-				query(`UPDATE owner SET tasksInQueue = tasksInQueue + 1 WHERE id = '${ownerId}'`);
+				tasksDb.run("UPDATE owner SET tasksInQueue = tasksInQueue + 1 WHERE id = ?", [ownerId]);
 			});
 			it("should unsuccessfully delete owner", async () => {
 				const res = await api.request("/v1/owners/" + ownerName, {
@@ -232,7 +200,7 @@ describe("TEST OWNER", () => {
 				expect(owner).toHaveProperty("message");
 			});
 			afterEach(() => {
-				query(`UPDATE owner SET tasksInQueue = 0 WHERE id = '${ownerId}'`);
+				tasksDb.run("UPDATE owner SET tasksInQueue = 0 WHERE id = ?", [ownerId]);
 			});
 		});
 
@@ -247,10 +215,9 @@ describe("TEST OWNER", () => {
 					"X-Tasks-Owner-Id": ownerId
 				})
 			});
-			const owner = await res.json() as { status: "Done" };
+			const owner = await res.json();
 			expect(res.status).toBe(200);
-			expect(owner).toHaveProperty("status");
-			expect(owner.status).toBe("Done");
+			expect(owner).toStrictEqual({ status: "Done" });
 		});
 	});
 });
