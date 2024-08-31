@@ -1,9 +1,7 @@
-import { argv, env, file, sleep, spawnSync } from "bun";
+import { argv, env, file, sleep } from "bun";
+import { Database } from "bun:sqlite";
 
-import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
-
-import { timeframeDb } from "./src/db/db";
 
 async function init(): Promise<void> {
 	try {
@@ -13,42 +11,41 @@ async function init(): Promise<void> {
 		if (env.PRAGMA_KEY_SQLITE == null) {
 			throw new Error("PRAGMA_KEY_SQLITE to be defined");
 		}
-		const forceDelete = argv[argv.length - 1] == "-f";
+		const forceDelete = argv[argv.length - 1] == "-f" || argv[argv.length - 1] == "--force";
 		const pathTimeframeDb = env.PATH_SQLITE.replace(".db", "-timeframe.db");
 		if (forceDelete) {
 			await Promise.all([
-				rm(env.PATH_SQLITE, { force: true }),
-				rm(pathTimeframeDb, { force: true })
+				rm(env.PATH_SQLITE, { force: true }).catch(() => {}),
+				rm(env.PATH_SQLITE + "-shm", { force: true }).catch(() => {}),
+				rm(env.PATH_SQLITE + "-wal", { force: true }).catch(() => {}),
+				rm(pathTimeframeDb, { force: true }).catch(() => {}),
+				rm(pathTimeframeDb + "-shm", { force: true }).catch(() => {}),
+				rm(pathTimeframeDb + "-wal", { force: true }).catch(() => {})
 			]);
 			await sleep(1);
 		}
+		// Tasks DB
+		if (await file(env.PATH_SQLITE).exists()) {
+			console.warn("Tasks DB is already exists");
+		} else {
+			const db = new Database(env.PATH_SQLITE, { strict: true });
+			const raw = await file("src/db/sql/tasks.sql").text();
+			db.run(raw);
+			db.close();
+			await sleep(1);
+			console.log("Tasks DB Ok");
+		}
 		// Timeframe DB
-		if (existsSync(pathTimeframeDb)) {
+		if (await file(pathTimeframeDb).exists()) {
 			console.warn("Timeframe DB is already exists");
 		} else {
-			const db = timeframeDb(pathTimeframeDb);
+			const db = new Database(pathTimeframeDb, { strict: true });
 			const raw = await file("src/db/sql/timeframe.sql").text();
 			db.run(raw);
 			db.run("INSERT INTO timeframe (id, lastRecordAt) VALUES (?1, ?2)", [1, Date.now()]);
 			db.close();
-			console.log("Timeframe DB ok");
 			await sleep(1);
-		}
-		// Tasks DB
-		if (existsSync(env.PATH_SQLITE)) {
-			console.warn("Tasks DB is already exists");
-		} else {
-			const options = ["-bail", "-nofollow", "-noheader", "-json"];
-			const { stderr, success } = spawnSync(["sqlcipher", env.PATH_SQLITE, ...options, `PRAGMA key = '${env.PRAGMA_KEY_SQLITE}'`, ".read src/db/sql/tasks.sql"], {
-				stdout: null,
-				env: {}
-			});
-			if (success) {
-				console.log("Tasks DB ok");
-				await sleep(1);
-			} else {
-				throw new Error(stderr.toString().trim());
-			}
+			console.log("Timeframe DB Ok");
 		}
 	} catch (e) {
 		console.error(e);
