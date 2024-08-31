@@ -5,4 +5,4 @@ disable = true
 
 [test]
 coverage = true
-coverageThreshold = 0.9
+coverageThreshold = { lines = 0, functions = 1 }
