@@ -4,7 +4,6 @@ declare module "bun" {
 		LOG: "0" | "1";
 		// DB
 		PATH_SQLITE: string;
-		PRAGMA_KEY_SQLITE: string;
 		// DB Backup
 		BACKUP_METHOD_SQLITE: "LOCAL" | "GOOGLE_CLOUD_STORAGE";
 		BACKUP_DIR_SQLITE: string;
@@ -20,9 +19,6 @@ declare module "bun" {
 		CONNECTIVITY_HOSTNAME: string;
 		MAX_SIZE_BODY_REQUEST: string;
 		MAX_SIZE_DATA_RESPONSE: string;
-		// Nix
-		TAR: "0" | "1";
-		PATH_LIBTAR: string;
 	}
 }
 

@@ -5,11 +5,9 @@ import { tasksDb, timeframeDb } from "./db";
 
 describe("TEST DATABASE", () => {
 	describe("env variables", () => {
-		it("should successfully defined PATH_SQLITE and PRAGMA_KEY_SQLITE", () => {
+		it("should successfully defined PATH_SQLITE", () => {
 			expect(env.PATH_SQLITE).not.toBeEmpty();
 			expect(env.PATH_SQLITE).toBeDefined();
-			expect(env.PRAGMA_KEY_SQLITE).not.toBeEmpty();
-			expect(env.PRAGMA_KEY_SQLITE).toBeDefined();
 		});
 	});
 

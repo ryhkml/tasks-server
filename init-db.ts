@@ -8,9 +8,6 @@ async function init(): Promise<void> {
 		if (env.PATH_SQLITE == null) {
 			throw new Error("PATH_SQLITE to be defined");
 		}
-		if (env.PRAGMA_KEY_SQLITE == null) {
-			throw new Error("PRAGMA_KEY_SQLITE to be defined");
-		}
 		const forceDelete = argv[argv.length - 1] == "-f" || argv[argv.length - 1] == "--force";
 		const pathTimeframeDb = env.PATH_SQLITE.replace(".db", "-timeframe.db");
 		if (forceDelete) {
