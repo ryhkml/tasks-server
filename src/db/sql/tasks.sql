@@ -1,7 +1,8 @@
-PRAGMA cipher_compatibility = 4;
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
-PRAGMA synchronous = EXTRA;
+PRAGMA synchronous = FULL;
+PRAGMA temp_store = MEMORY;
+PRAGMA page_size = 8192;
 
 CREATE TABLE owner (
 	id					TEXT UNIQUE PRIMARY KEY,

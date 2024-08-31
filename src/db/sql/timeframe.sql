@@ -1,4 +1,5 @@
-PRAGMA synchronous = EXTRA;
+PRAGMA synchronous = FULL;
+PRAGMA temp_store = MEMORY;
 
 CREATE TABLE timeframe (
 	id 				INTEGER PRIMARY KEY,
