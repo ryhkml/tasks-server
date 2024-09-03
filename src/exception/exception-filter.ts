@@ -45,6 +45,12 @@ export function exceptionFilter(e: Error | HTTPResponseError, c: Context): JSONR
 				message: e.cause || "The request did not meet one of it's preconditions"
 			}, 422);
 		}
+		if (e.status == 429) {
+			return c.json({
+				action: "Please wait until the server restore your connection",
+				message: e.cause || "Too many requests in a given amount of time"
+			}, 429);
+		}
 		return c.json({
 			action: "Do not retry this request more than once",
 			message: e.cause || "Internal server error"

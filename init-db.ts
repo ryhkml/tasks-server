@@ -9,15 +9,15 @@ async function init(): Promise<void> {
 			throw new Error("PATH_SQLITE to be defined");
 		}
 		const forceDelete = argv[argv.length - 1] == "-f" || argv[argv.length - 1] == "--force";
+		const pathThrottleDb = env.PATH_SQLITE.replace(".db", "-throttle.db");
 		const pathTimeframeDb = env.PATH_SQLITE.replace(".db", "-timeframe.db");
 		if (forceDelete) {
 			await Promise.all([
 				rm(env.PATH_SQLITE, { force: true }).catch(() => {}),
-				rm(env.PATH_SQLITE + "-shm", { force: true }).catch(() => {}),
-				rm(env.PATH_SQLITE + "-wal", { force: true }).catch(() => {}),
-				rm(pathTimeframeDb, { force: true }).catch(() => {}),
-				rm(pathTimeframeDb + "-shm", { force: true }).catch(() => {}),
-				rm(pathTimeframeDb + "-wal", { force: true }).catch(() => {})
+				rm(pathThrottleDb, { force: true }).catch(() => {}),
+				rm(pathThrottleDb + "-shm", { force: true }).catch(() => {}),
+				rm(pathThrottleDb + "-wal", { force: true }).catch(() => {}),
+				rm(pathTimeframeDb, { force: true }).catch(() => {})
 			]);
 			await sleep(1);
 		}
@@ -31,6 +31,17 @@ async function init(): Promise<void> {
 			db.close();
 			await sleep(1);
 			console.log("Tasks DB Ok");
+		}
+		// Throttle DB
+		if (await file(pathThrottleDb).exists()) {
+			console.warn("Throttle DB is already exists");
+		} else {
+			const db = new Database(pathThrottleDb, { strict: true });
+			const raw = await file("src/db/sql/throttle.sql").text();
+			db.run(raw);
+			db.close();
+			await sleep(1);
+			console.log("Throttle DB Ok");
 		}
 		// Timeframe DB
 		if (await file(pathTimeframeDb).exists()) {

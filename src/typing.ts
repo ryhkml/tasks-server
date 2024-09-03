@@ -19,11 +19,14 @@ declare module "bun" {
 		CONNECTIVITY_HOSTNAME: string;
 		MAX_SIZE_BODY_REQUEST: string;
 		MAX_SIZE_DATA_RESPONSE: string;
+		MAX_THROTTLE_REQUEST: string;
+		MAX_THROTTLE_TIME_WINDOW: string;
 	}
 }
 
 type Var = {
 	Variables: {
+		clientId: string;
 		ownerId: string;
 		todayAt: number;
 	}
@@ -50,4 +53,10 @@ interface QueueTable {
 	estimateEndAt: number;
 	estimateExecutionAt: number;
 	response: string | null;
+}
+
+interface ControlTable {
+	id: string;
+	requestCount: number;
+	lastRequestAt: number;
 }

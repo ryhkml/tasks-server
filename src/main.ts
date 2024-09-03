@@ -1,4 +1,4 @@
-import { env, serve } from "bun";
+import { env, hash, serve, SocketAddress } from "bun";
 
 import { pid } from "node:process";
 
@@ -9,16 +9,19 @@ import { BlankSchema } from "hono/types";
 
 import { owner } from "./apis/owner";
 import { exceptionFilter } from "./exception/exception-filter";
+import { throttle } from "./middlewares/throttle";
 import { safeInteger } from "./utils/common";
 
-function main(): Hono<Var, BlankSchema, "/"> {
+type Socket = {
+	Bindings: {
+		ip: SocketAddress;
+	};
+};
 
-	const api = new Hono<Var>();
+function main(): Hono<Var & Socket, BlankSchema, "/"> {
 
-	api.use(async (c, next) => {
-		c.set("todayAt", Date.now());
-		await next();
-	});
+	const api = new Hono<Var & Socket>();
+
 	api.use(secureHeaders({
 		crossOriginOpenerPolicy: false,
 		crossOriginResourcePolicy: false,
@@ -28,11 +31,17 @@ function main(): Hono<Var, BlankSchema, "/"> {
 		xFrameOptions: "DENY",
 		xPermittedCrossDomainPolicies: false
 	}));
-	api.use(prettyJSON({ space: 4 }));
+	api.use(async (c, next) => {
+		c.set("clientId", hash(c.env.ip.address).toString());
+		c.set("todayAt", Date.now());
+		await next();
+	});
 
 	api.notFound(() => new Response(null, { status: 404 }));
-
 	api.onError(exceptionFilter);
+
+	api.use(prettyJSON({ space: 4 }));
+	api.use(throttle);
 
 	api.get("/status", c => c.text("OK"));
 
