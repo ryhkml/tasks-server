@@ -4,7 +4,7 @@ import { Database } from "bun:sqlite";
 import { rm } from "node:fs/promises";
 
 import { UTCDate } from "@date-fns/utc";
-import { logError, logInfo } from "./src/utils/logger";
+import { logError, logInfo, logWarn } from "./src/utils/logger";
 
 async function init(): Promise<void> {
 	try {
@@ -26,7 +26,7 @@ async function init(): Promise<void> {
 		}
 		// Tasks DB
 		if (await file(env.PATH_SQLITE).exists()) {
-			console.warn("Tasks DB is already exists");
+			logWarn("Tasks DB is already exists");
 		} else {
 			const db = new Database(env.PATH_SQLITE, { strict: true });
 			const raw = await file("src/db/sql/tasks.sql").text();
@@ -37,7 +37,7 @@ async function init(): Promise<void> {
 		}
 		// Throttle DB
 		if (await file(pathThrottleDb).exists()) {
-			console.warn("Throttle DB is already exists");
+			logWarn("Throttle DB is already exists");
 		} else {
 			const db = new Database(pathThrottleDb, { strict: true });
 			const raw = await file("src/db/sql/throttle.sql").text();
@@ -48,7 +48,7 @@ async function init(): Promise<void> {
 		}
 		// Timeframe DB
 		if (await file(pathTimeframeDb).exists()) {
-			console.warn("Timeframe DB is already exists");
+			logWarn("Timeframe DB is already exists");
 		} else {
 			const db = new Database(pathTimeframeDb, { strict: true });
 			const raw = await file("src/db/sql/timeframe.sql").text();
