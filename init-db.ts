@@ -3,6 +3,9 @@ import { Database } from "bun:sqlite";
 
 import { rm } from "node:fs/promises";
 
+import { UTCDate } from "@date-fns/utc";
+import { logError, logInfo } from "./src/utils/logger";
+
 async function init(): Promise<void> {
 	try {
 		if (env.PATH_SQLITE == null) {
@@ -30,7 +33,7 @@ async function init(): Promise<void> {
 			db.run(raw);
 			db.close();
 			await sleep(1);
-			console.log("Tasks DB Ok");
+			logInfo("Tasks DB Ok");
 		}
 		// Throttle DB
 		if (await file(pathThrottleDb).exists()) {
@@ -41,7 +44,7 @@ async function init(): Promise<void> {
 			db.run(raw);
 			db.close();
 			await sleep(1);
-			console.log("Throttle DB Ok");
+			logInfo("Throttle DB Ok");
 		}
 		// Timeframe DB
 		if (await file(pathTimeframeDb).exists()) {
@@ -50,13 +53,13 @@ async function init(): Promise<void> {
 			const db = new Database(pathTimeframeDb, { strict: true });
 			const raw = await file("src/db/sql/timeframe.sql").text();
 			db.run(raw);
-			db.run("INSERT INTO timeframe (id, lastRecordAt) VALUES (?1, ?2)", [1, Date.now()]);
+			db.run("INSERT INTO timeframe (id, lastRecordAt) VALUES (?1, ?2)", [1, UTCDate.now()]);
 			db.close();
 			await sleep(1);
-			console.log("Timeframe DB Ok");
+			logInfo("Timeframe DB Ok");
 		}
 	} catch (e) {
-		console.error(e);
+		logError(e);
 	}
 }
 
