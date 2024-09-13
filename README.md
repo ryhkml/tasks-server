@@ -1,6 +1,6 @@
 <div align="center">
     <h1>
-        <b>On-Premise Tasks</b>
+        <b>Tasks Server</b>
     </h1>
 </div>
 
@@ -9,7 +9,7 @@ Tasks Server is an on-premise task management service designed to execute and di
 <br>
 
 <div align="center">
-	<img src="./diagram.png" alt="Diagram On-Premise Tasks">
+	<img src="./diagram.png" alt="Diagram Tasks Server">
 </div>
 
 ## Features
@@ -19,7 +19,7 @@ Tasks Server is an on-premise task management service designed to execute and di
 
 There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
-### On-Premise Tasks vs Pub/Sub
+### Tasks vs Pub/Sub
 
 | **Feature** | **Tasks** | **Pub/Sub** |
 |---|---|---|
@@ -31,7 +31,7 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 | **Delivery Rate Control** | Limited 1000 task in queue | Unlimited |
 | **Use Cases** | Form submission, file processing, send notifications | Streaming data, asynchronous event processing |
 
-### On-Premise Tasks vs Cron Job Scheduler
+### Tasks vs Cron Job Scheduler
 
 | **Feature** | **Tasks** | **Cron Job Scheduler** |
 |---|---|---|
