@@ -46,7 +46,7 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 ## Getting Started
 Make sure you have [bun](https://bun.sh/docs/installation) installed, run:
 ```sh
-./init.sh
+./install.sh
 ```
 
 ## Development
