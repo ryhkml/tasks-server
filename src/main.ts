@@ -7,10 +7,14 @@ import { prettyJSON } from "hono/pretty-json";
 import { secureHeaders } from "hono/secure-headers";
 import { BlankSchema } from "hono/types";
 
+import { UTCDate } from "@date-fns/utc";
+
 import { owner } from "./apis/owner";
+import { queue } from "./apis/queue";
 import { exceptionFilter } from "./exception/exception-filter";
 import { throttle } from "./middlewares/throttle";
 import { safeInteger } from "./utils/common";
+import { logInfo } from "./utils/logger";
 
 type Socket = {
 	Bindings: {
@@ -33,7 +37,9 @@ function main(): Hono<Var & Socket, BlankSchema, "/"> {
 	}));
 	api.use(async (c, next) => {
 		c.set("clientId", hash(c.env.ip.address).toString());
-		c.set("todayAt", Date.now());
+		c.set("ip", c.env.ip.address);
+		c.set("todayAt", new UTCDate().getTime());
+		c.set("userAgent", c.req.header("User-Agent") ?? null);
 		await next();
 	});
 
@@ -46,6 +52,7 @@ function main(): Hono<Var & Socket, BlankSchema, "/"> {
 	api.get("/status", c => c.text("OK"));
 
 	api.basePath("/v1").route("/owners", owner());
+	api.basePath("/v1").route("/queues", queue());
 
 	return api;
 }
@@ -58,4 +65,4 @@ const server = serve({
 	maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768
 });
 
-console.log(pid, "Server listening on", server.url.toString());
+logInfo("Server listening on", server.url.toString(), JSON.stringify({ pid }));
