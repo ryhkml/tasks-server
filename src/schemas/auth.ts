@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-const keySchema = z.string().regex(/^[a-zA-Z0-9_-]{42}$/);
+const keySchema = z.string().length(42).regex(/^[a-zA-Z0-9_-]{42}$/);
 
-export const ownerId = z.object({
+export const ownerHeadersSchema = z.object({
 	"authorization": z.string().refine(v => {
 		const [prefix, key] = v.split(" ");
 		return prefix == "Bearer" && keySchema.safeParse(key).success;

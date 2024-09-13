@@ -3,7 +3,7 @@ export function isEmpty<T>(v: T): boolean {
 	return [Object, Array].includes((v || {}).constructor) && !Object.entries((v || {})).length;
 }
 
-export function isPlainObject<T extends object>(v: T): boolean {
+export function isPlainObject(v: unknown): v is { [k: string]: any } {
 	if (typeof v !== "object" || v === null) {
 		return false;
 	}
@@ -16,13 +16,6 @@ export function isPlainObject<T extends object>(v: T): boolean {
 	}
 	const ctor = Object.prototype.hasOwnProperty.call(proto, "constructor") && proto.constructor;
 	return typeof ctor === "function" && ctor instanceof ctor && Function.prototype.call(ctor) === Function.prototype.call(v);
-}
-
-export function isString<T>(v: T): boolean {
-	if (v != null && typeof v.valueOf() === "string") {
-		return true;
-	}
-	return false;
 }
 
 export function safeInteger<T>(v: T): number {

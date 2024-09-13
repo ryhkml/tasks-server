@@ -2,8 +2,8 @@ import { password } from "bun";
 import { beforeAll, describe, expect, it } from "bun:test";
 
 import { Hono } from "hono";
-import { prettyJSON } from "hono/pretty-json";
 
+import { UTCDate } from "@date-fns/utc";
 import { nanoid } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -14,7 +14,7 @@ import { exceptionFilter } from "../exception/exception-filter";
 
 describe("TEST AUTH", () => {
 	
-	const todayAt = Date.now();
+	const todayAt = new UTCDate().getTime();
 	const ownerName = "dummy";
 	let ownerId = "";
 	let key = "";
@@ -23,10 +23,9 @@ describe("TEST AUTH", () => {
 	const api = new Hono<Var>();
 
 	api.use(async (c, next) => {
-		c.set("todayAt", Date.now());
+		c.set("todayAt", new UTCDate().getTime());
 		await next();
 	});
-	api.use(prettyJSON({ space: 4 }));
 
 	api.onError(exceptionFilter);
 

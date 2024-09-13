@@ -7,7 +7,7 @@ describe("Test CONNECTIVITY", () => {
 	describe("", () => {
 		it("should connected to the internet", async () => {
 			const res = await connectivity();
-			expect(res).toBe("Online");
+			expect(res).toBe("ONLINE");
 		});
 	});
 
@@ -18,7 +18,7 @@ describe("Test CONNECTIVITY", () => {
 		});
 		it("should disconnected to the internet", async () => {
 			const res = await connectivity();
-			expect(res).toBe("Offline");
+			expect(res).toBe("OFFLINE");
 		});
 	});
 });

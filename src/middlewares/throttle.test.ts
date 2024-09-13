@@ -1,12 +1,13 @@
-import { env, hash, sleep, SocketAddress } from "bun";
-import { afterEach, beforeEach, beforeAll, describe, expect, it } from "bun:test";
+import { hash, sleep, SocketAddress } from "bun";
+import { afterEach, beforeEach, describe, expect, it, setSystemTime } from "bun:test";
 
 import { Hono } from "hono";
+
+import { UTCDate } from "@date-fns/utc";
 
 import { throttle } from "./throttle";
 import { throttleDb } from "../db/db";
 import { exceptionFilter } from "../exception/exception-filter";
-import { safeInteger } from "../utils/common";
 
 type Socket = {
 	Bindings: {
@@ -18,23 +19,20 @@ describe("TEST THROTTLE", () => {
 	
 	const id = hash("127.0.0.1").toString();
 
+	const stmtRequestCount = throttleDb.prepare<Pick<ControlTable, "requestCount">, string>("SELECT requestCount FROM control WHERE id = ?");
+
 	const api = new Hono<Var & Socket>();
 
 	api.onError(exceptionFilter);
 
 	api.use(async (c, next) => {
 		c.set("clientId", id);
-		c.set("todayAt", Date.now());
+		c.set("todayAt", new UTCDate().getTime());
 		await next();
 	});
 	api.use(throttle);
 
 	api.get("/status", c => c.text("OK"));
-
-	beforeAll(() => {
-		// @ts-expect-error
-		env.MAX_THROTTLE_TIME_WINDOW = 3000;
-	});
 
 	describe("", () => {
 		it("should allow requests within the limit", async () => {
@@ -45,12 +43,12 @@ describe("TEST THROTTLE", () => {
 				})
 			});
 			expect(res.status).toBe(200);
-			const control = throttleDb.query<Pick<ControlTable, "requestCount">, string>("SELECT requestCount FROM control WHERE id = ?");
-			const { requestCount } = control.get(id)!;
+			const { requestCount } = stmtRequestCount.get(id)!;
 			expect(requestCount).toBe(1);
 		});
-		afterEach(() => {
+		afterEach(async () => {
 			throttleDb.run("DELETE FROM control WHERE id = ?", [id]);
+			await sleep(1);
 		});
 	});
 
@@ -71,17 +69,18 @@ describe("TEST THROTTLE", () => {
 				})
 			});
 			expect(res.status).toBe(429);
-			const control = throttleDb.query<Pick<ControlTable, "requestCount">, string>("SELECT requestCount FROM control WHERE id = ?");
-			const { requestCount } = control.get(id)!;
+			const { requestCount } = stmtRequestCount.get(id)!;
 			expect(requestCount).toBe(10);
 		});
-		afterEach(() => {
+		afterEach(async () => {
 			throttleDb.run("DELETE FROM control WHERE id = ?", [id]);
+			await sleep(1);
 		});
 	});
 
 	describe("", () => {
 		beforeEach(async () => {
+			setSystemTime(new UTCDate("Dec 12 2012 12:00:00 PM"));
 			for (let i = 1; i <= 10; i++) {
 				await api.request("/status", {
 					cache: "no-cache",
@@ -89,10 +88,12 @@ describe("TEST THROTTLE", () => {
 						"Cache-Control": "no-cache, no-store, must-revalidate"
 					})
 				});
+				await sleep(1);
 			}
 		});
 		it("should reset the count after the time window", async () => {
-			await sleep(safeInteger(env.MAX_THROTTLE_TIME_WINDOW));
+			// 1 minute later
+			setSystemTime(new UTCDate("Dec 12 2012 12:01:00 PM"));
 			const res = await api.request("/status", {
 				cache: "no-cache",
 				headers: new Headers({
@@ -100,9 +101,11 @@ describe("TEST THROTTLE", () => {
 				})
 			});
 			expect(res.status).toBe(200);
-			const control = throttleDb.query<Pick<ControlTable, "requestCount">, string>("SELECT requestCount FROM control WHERE id = ?");
-			const { requestCount } = control.get(id)!;
+			const { requestCount } = stmtRequestCount.get(id)!;
 			expect(requestCount).toBe(1);
+		});
+		afterEach(() => {
+			setSystemTime();
 		});
 	});
 });

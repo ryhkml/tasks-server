@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { isEmpty, isPlainObject, isString, safeInteger } from "./common";
+import { isEmpty, isPlainObject, safeInteger } from "./common";
 
 describe("TEST COMMON", () => {	
 	describe("lang", () => {
@@ -88,33 +88,6 @@ describe("TEST COMMON", () => {
 				expect(check1).toBeFalse();
 				expect(check2).toBeFalse();
 				expect(check3).toBeFalse();
-			});
-		});
-	});
-	
-	describe("string", () => {
-		describe("isEmpty", () => {
-			it("should return true if the data type is string", () => {
-				const value1 = "";
-				const value2 = "[]";
-				const check1 = isString(value1);
-				const check2 = isString(value2);
-				expect(check1).toBeTrue();
-				expect(check2).toBeTrue();
-			});
-			it("should return false if the data type is not string", () => {
-				const value1 = undefined;
-				const value2 = null;
-				const value3 = 1;
-				const value4 = [""];
-				const check1 = isString(value1);
-				const check2 = isString(value2);
-				const check3 = isString(value3);
-				const check4 = isString(value4);
-				expect(check1).toBeFalse();
-				expect(check2).toBeFalse();
-				expect(check3).toBeFalse();
-				expect(check4).toBeFalse();
 			});
 		});
 	});

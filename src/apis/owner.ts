@@ -1,7 +1,6 @@
 import { password } from "bun";
 
 import { Hono } from "hono";
-import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 import { BlankSchema } from "hono/types";
 
@@ -11,7 +10,7 @@ import { ulid } from "ulid";
 
 import { tasksAuth } from "../auth/auth";
 import { tasksDb } from "../db/db";
-import { ownerName } from "../schemas/owner";
+import { ownerNameSchema } from "../schemas/owner";
 
 const stmtIsRegistered = tasksDb.prepare<{ isRegistered: 0 | 1 }, string>("SELECT EXISTS (SELECT 1 FROM owner WHERE name = ?) AS isRegistered");
 
@@ -21,20 +20,16 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 
 	owner.post(
 		"/register",
-		zValidator("json", ownerName, (result) => {
+		zValidator("json", ownerNameSchema, (result) => {
 			if (!result.success) {
 				const errors = result.error.format();
-				// @ts-expect-error
-				errors._errors = undefined;
 				throw new HTTPException(400, {
 					cause: errors
 				});
 			}
 		}),
-		// Check registered owner
-		createMiddleware(async (c, next) => {
-			// @ts-expect-error
-			const { name } = c.req.valid("json") as { name: string };
+		async (c, next) => {
+			const { name } = c.req.valid("json")
 			const owner = stmtIsRegistered.get(name);
 			if (owner?.isRegistered) {
 				throw new HTTPException(409, {
@@ -42,7 +37,7 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 				});
 			}
 			await next();
-		}),
+		},
 		async (c) => {
 			const { name } = c.req.valid("json");
 			const todayAt = c.get("todayAt");
@@ -62,11 +57,9 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 	owner.get(
 		"/:name",
 		tasksAuth(),
-		zValidator("param", ownerName, (result) => {
+		zValidator("param", ownerNameSchema, (result) => {
 			if (!result.success) {
 				const errors = result.error.format();
-				// @ts-expect-error
-				errors._errors = undefined;
 				throw new HTTPException(400, {
 					cause: errors
 				});
@@ -75,7 +68,12 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 		(c) => {
 			const id = c.get("ownerId");
 			const { name } = c.req.valid("param");
-			const owner = tasksDb.query<Omit<OwnerTable, "key">, [string, string]>("SELECT id, name, createdAt, tasksInQueue, tasksInQueueLimit FROM owner WHERE id = ?1 AND name = ?2").get(id, name);
+			const raw = tasksDb.query<Omit<OwnerTable, "key">, [string, string]>(`
+				SELECT id, name, createdAt, tasksInQueue, tasksInQueueLimit
+				FROM owner
+				WHERE id = ?1 AND name = ?2
+			`)
+			const owner = raw.get(id, name);
 			if (owner == null) {
 				return c.json({}, 404);
 			}
@@ -86,11 +84,9 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 	owner.delete(
 		"/:name",
 		tasksAuth(),
-		zValidator("param", ownerName, (result) => {
+		zValidator("param", ownerNameSchema, (result) => {
 			if (!result.success) {
 				const errors = result.error.format();
-				// @ts-expect-error
-				errors._errors = undefined;
 				throw new HTTPException(400, {
 					cause: errors
 				});
@@ -99,11 +95,16 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 		(c) => {
 			const id = c.get("ownerId");
 			const { name } = c.req.valid("param");
-			const owner = tasksDb.query<{ deleted: "Done" }, [string, string]>("DELETE FROM owner WHERE id = ?1 AND name = ?2 AND tasksInQueue = 0 RETURNING 'Done' AS deleted").get(id, name);
-			if (owner == null) {
+			const raw = tasksDb.query<{ status: "Done" }, [string, string]>(`
+				DELETE FROM owner
+				WHERE id = ?1 AND name = ?2 AND tasksInQueue = 0
+				RETURNING 'Done' AS status
+			`);
+			const deleted = raw.get(id, name);
+			if (deleted == null) {
 				throw new HTTPException(422);
 			}
-			return c.json({ status: owner.deleted });
+			return c.json(deleted);
 		}
 	);
 
