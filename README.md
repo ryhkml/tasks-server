@@ -13,7 +13,7 @@ Tasks Server is an on-premise task management service designed to execute and di
 </div>
 
 ## Features
-1. HTTP requests with selected (http and https) curl options
+1. HTTP requests with selected http curl options
 2. Configurable retry mechanism
 3. Custom scheduling options
 
@@ -23,25 +23,23 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
 | **Feature** | **Tasks** | **Pub/Sub** |
 |---|---|---|
-| **Communication Model** | Message-to-queue | Publish-subscribe |
+| **Primary Purpose** | Execute scheduled and delayed tasks | Distribute messages in real-time |
 | **Scheduling** | Yes | No |
-| **Configurable Retries** | Yes | Yes |
-| **Individual Task Management** | Yes | No |
-| **Delivery Warranty** | Best (with retries) | At least once |
+| **Delivery Warranty** | At-least-once delivery | At-least-once delivery (duplicates are possible) |
 | **Delivery Rate Control** | Limited 1000 task in queue | Unlimited |
-| **Use Cases** | Form submission, send notifications | Streaming data, asynchronous event processing |
+| **Failure Handling** | Best (with retries) | Message acknowledgment (subscribers must acknowledge messages after processing) |
+| **Use Cases** | Processing asynchronous tasks such as sending emails or updating databases. Running scheduled tasks such as generating daily reports | Real-time data streaming or Pub/sub systems such as sending notifications or updating caches |
 
 ### Tasks vs Cron Job Scheduler
 
 | **Feature** | **Tasks** | **Cron Job Scheduler** |
 |---|---|---|
-| **Communication Model** | Message-to-queue | Message-to-job |
-| **Scheduling** | Yes | Yes (Cron-schedule fixed interval) |
-| **Configurable Retries** | Yes | No |
-| **Individual Task Management** | Yes | No |
-| **Delivery Warranty** | Best (with retries) | No |
-| **Delivery Rate Control** | Limited 1000 task in queue | No |
-| **Use Cases** | Form submission, send notifications | Batch processing, cleanup processing, data synchronization |
+| **Primary Purpose** | Execute scheduled and delayed tasks | Schedule fully managed cron jobs |
+| **Scheduling** | Yes | Yes (cron-schedule fixed interval) |
+| **Delivery Warranty** | At-least-once delivery | Depends on the target service |
+| **Delivery Rate Control** | Limited 1000 task in queue | Unlimited |
+| **Failure Handling** | Best (with retries) | No, or depends on the target service |
+| **Use Cases** | Processing asynchronous tasks such as sending emails or updating databases. Running scheduled tasks such as generating daily reports | Running recurring tasks on a schedule (nightly backups, daily reports, cleanup processing) |
 
 ## Getting Started
 Make sure you have [bun](https://bun.sh/docs/installation) installed, run:
@@ -77,25 +75,25 @@ You can use absolute path or current working path, for example:
 # Absolute path
 /tmp/tasks/tasks.db
 # Current working path
-./.database/tasks.db
+.database/tasks.db
 ```
 
 ## APIs
 ### Owner
-- ✅ `GET /owners/:name`
-- ✅ `DELETE /owners/:name`
-- ✅ `POST /owners/register`
+- ✅ `GET /v1/owners/:name`
+- ✅ `DELETE /v1/owners/:name`
+- ✅ `POST /v1/owners/register`
 
 ### Queue
-- ✅ `GET /queues`
-- ✅ `GET /queues/:id`
-- ❌ `PATCH /queues/:id`
-- ✅ `DELETE /queues/:id`
-- ❌ `GET /queues/:id/config`
-- ✅ `PATCH /queues/:id/pause`
-- ✅ `PATCH /queues/:id/resume`
-- ✅ `PATCH /queues/:id/revoke`
-- ✅ `POST /queues/register`
+- ✅ `GET /v1/queues`
+- ✅ `GET /v1/queues/:id`
+- ❌ `PATCH /v1/queues/:id`
+- ✅ `DELETE /v1/queues/:id`
+- ❌ `GET /v1/queues/:id/config`
+- ✅ `PATCH /v1/queues/:id/pause`
+- ✅ `PATCH /v1/queues/:id/resume`
+- ✅ `PATCH /v1/queues/:id/revoke`
+- ✅ `POST /v1/queues/register`
 
 ❌ ## Documentation
 
@@ -107,8 +105,8 @@ An example of requesting a task
 ```json
 {
     "httpRequest": {
-        "url": "https://dummyjson.com/todos/1",
-        "method": "GET"
+        "url": "https://target-service",
+        "method": "POST"
     },
     "config": {
         "executionDelay": 86400000,
@@ -118,25 +116,16 @@ An example of requesting a task
     }
 }
 ```
-```sh
-curl -X POST \
-    -H "authorization: Bearer <KEY>" \
-    -H "content-type: application/json" \
-    -H "x-tasks-owner-id: <ID>" \
-    -d @body.json \
-    http://localhost:9220/queues/register
-```
 The response
 ```json
 {
-	"id": "...",
+    "id": "...",
     "state": "RUNNING",
     "createdAt": "...",
-    "expiredAt": 0,
     "statusCode": 0,
     "estimateEndAt": 0,
     "estimateExecutionAt": "...",
-	"response": null
+    "response": null
 }
 ```
 
@@ -155,8 +144,8 @@ Additionally, you can make a specific request by using `executeAt`
 ```json
 {
     "httpRequest": {
-        "url": "https://dummyjson.com/todos/1",
-        "method": "GET"
+        "url": "https://target-service",
+        "method": "POST"
     },
     "config": {
         "executeAt": 1355245932000
@@ -167,21 +156,13 @@ or
 ```json
 {
     "httpRequest": {
-        "url": "https://dummyjson.com/todos/1",
-        "method": "GET"
+        "url": "https://target-service",
+        "method": "POST"
     },
     "config": {
         "executeAt": "Dec 12 2012 12:12:12 AM"
     }
 }
-```
-```sh
-curl -X POST \
-    -H "authorization: Bearer <KEY>" \
-    -H "content-type: application/json" \
-    -H "x-tasks-owner-id: <ID>" \
-    -d @req.json \
-    http://localhost:3200/queues/register
 ```
 > [!NOTE]
 >
