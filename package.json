@@ -13,6 +13,7 @@
 		"serve:dev": "NODE_ENV=development bun run --hot src/main.ts"
 	},
 	"dependencies": {
+		"@date-fns/utc": "^1.2.0",
 		"@hono/zod-validator": "^0.2.2",
 		"date-fns": "^3.6.0",
 		"hono": "^4.5.8",
