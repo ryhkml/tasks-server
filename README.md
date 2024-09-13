@@ -24,24 +24,24 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 | **Feature** | **Tasks** | **Pub/Sub** |
 |---|---|---|
 | **Communication Model** | Message-to-queue | Publish-subscribe |
-| **Scheduling** | Yes (one-time or recurring) | No |
+| **Scheduling** | Yes | No |
 | **Configurable Retries** | Yes | Yes |
 | **Individual Task Management** | Yes | No |
 | **Delivery Warranty** | Best (with retries) | At least once |
 | **Delivery Rate Control** | Limited 1000 task in queue | Unlimited |
-| **Use Cases** | Form submission, file processing, send notifications | Streaming data, asynchronous event processing |
+| **Use Cases** | Form submission, send notifications | Streaming data, asynchronous event processing |
 
 ### Tasks vs Cron Job Scheduler
 
 | **Feature** | **Tasks** | **Cron Job Scheduler** |
 |---|---|---|
 | **Communication Model** | Message-to-queue | Message-to-job |
-| **Scheduling** | Yes (one-time or recurring) | Yes (Cron-schedule fixed interval) |
+| **Scheduling** | Yes | Yes (Cron-schedule fixed interval) |
 | **Configurable Retries** | Yes | No |
 | **Individual Task Management** | Yes | No |
 | **Delivery Warranty** | Best (with retries) | No |
 | **Delivery Rate Control** | Limited 1000 task in queue | No |
-| **Use Cases** | Form submission, file processing, send notifications | Batch processing, cleanup processing, data synchronization |
+| **Use Cases** | Form submission, send notifications | Batch processing, cleanup processing, data synchronization |
 
 ## Getting Started
 Make sure you have [bun](https://bun.sh/docs/installation) installed, run:
