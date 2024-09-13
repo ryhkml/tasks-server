@@ -1,7 +1,9 @@
+PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 PRAGMA synchronous = FULL;
 PRAGMA temp_store = MEMORY;
 PRAGMA page_size = 8192;
+PRAGMA busy_timeout = 30000;
 
 CREATE TABLE owner (
 	id					TEXT UNIQUE PRIMARY KEY,
@@ -12,6 +14,7 @@ CREATE TABLE owner (
 	tasksInQueueLimit	INTEGER NULL DEFAULT 1000
 );
 
+CREATE INDEX idxIdName ON owner(id, name);
 CREATE INDEX idxIdNameTasksInQueue ON owner(id, name, tasksInQueue);
 CREATE INDEX idxIdTasksInQueueLimit ON owner(id, tasksInQueue, tasksInQueueLimit);
 
@@ -29,7 +32,6 @@ CREATE TABLE queue (
 	state 					TEXT NULL DEFAULT 'RUNNING',
 	statusCode 				INTEGER NULL DEFAULT 0,
 	createdAt 				INTEGER NOT NULL,
-	expiredAt 				INTEGER NULL DEFAULT 0,
 	estimateEndAt 			INTEGER NULL DEFAULT 0,
 	estimateExecutionAt 	INTEGER NOT NULL,
 	response				TEXT NULL,
@@ -38,23 +40,20 @@ CREATE TABLE queue (
 
 CREATE INDEX idxOwnerId ON queue(ownerId);
 CREATE INDEX idxState ON queue(state);
-CREATE INDEX idxIdOwnerId ON queue(id, ownerId);
-CREATE INDEX idxIdState ON queue(id, state);
-CREATE INDEX idxStateExpiredAt ON queue(state, expiredAt);
+CREATE INDEX idxIdStateOwnerId ON queue(id, state);
 
 CREATE TRIGGER incrementTasksInQueue
-AFTER INSERT ON queue
+BEFORE INSERT ON queue
 WHEN NEW.state = 'RUNNING'
 BEGIN
 	UPDATE owner SET tasksInQueue = tasksInQueue + 1 WHERE id = NEW.ownerId;
 END;
 
 CREATE TRIGGER decrementTasksInQueue
-AFTER UPDATE OF state ON queue
+BEFORE UPDATE OF state ON queue
 WHEN NEW.state IN ('SUCCESS', 'ERROR') AND OLD.state = 'RUNNING'
 BEGIN
 	UPDATE owner SET tasksInQueue = tasksInQueue - 1 WHERE id = NEW.ownerId;
-	UPDATE queue SET expiredAt = (STRFTIME('%s', 'now') * 1000) + 1296000000 WHERE id = NEW.id;
 	UPDATE config SET retrying = 0, estimateNextRetryAt = 0 WHERE id = NEW.id AND retrying = 1;
 END;
 
@@ -79,25 +78,26 @@ CREATE TABLE config (
 	authNtlm 				TEXT NULL,
 	authAwsSigv4			TEXT NULL,
 	executionDelay 			INTEGER NULL DEFAULT 1,
-	executeAt 				INTEGER NULL DEFAULT 0,
+	executeAt 				TEXT NULL,
+	executeImmediately 		INTEGER NULL DEFAULT 0,
 	retry 					INTEGER NULL DEFAULT 0,
-	retryAt 				INTEGER NULL DEFAULT 0,
+	retryAt 				TEXT NULL,
 	retrying 				INTEGER NULL DEFAULT 0,
 	retryCount 				INTEGER NULL DEFAULT 0,
 	retryLimit 				INTEGER NULL DEFAULT 0,
 	retryInterval 			INTEGER NULL DEFAULT 0,
-	retryStatusCode 		TEXT NULL DEFAULT '[]',
 	retryExponential 		INTEGER NULL DEFAULT 1,
+	ignoreStatusCode 		TEXT NULL DEFAULT '[]',
 	estimateNextRetryAt 	INTEGER NULL DEFAULT 0,
 	timeout 				INTEGER NULL DEFAULT 30000,
-	timeoutAt 				INTEGER NULL DEFAULT 0,
+	timeoutAt 				TEXT NULL,
 	ca						TEXT NULL,
 	cert					TEXT NULL,
 	certType				TEXT NULL,
 	certStatus				INTEGER NULL,
 	key						TEXT NULL,
 	keyType					TEXT NULL,
-	location				INTEGER NULL DEFAULT 0,
+	location				INTEGER NULL DEFAULT 1,
 	locationTrusted			TEXT NULL,
 	proto					TEXT NULL,
 	protoRedirect			TEXT NULL,
@@ -130,7 +130,7 @@ CREATE TABLE config (
 CREATE INDEX idxIdRetrying ON config(id, retrying);
 
 CREATE TRIGGER incrementRetryCount
-AFTER UPDATE OF retrying ON config
+BEFORE UPDATE OF retrying ON config
 WHEN NEW.retrying = 1
 BEGIN
 	UPDATE config SET retryCount = retryCount + 1 WHERE id = NEW.id;
