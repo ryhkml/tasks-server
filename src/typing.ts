@@ -22,6 +22,10 @@ declare module "bun" {
 		MAX_SIZE_DATA_RESPONSE: string;
 		MAX_THROTTLE_REQUEST: string;
 		MAX_THROTTLE_TIME_WINDOW: string;
+		// TLS/SSL
+		PATH_TLS_CA?: string;
+		PATH_TLS_KEY?: string;
+		PATH_TLS_CERT?: string;
 	}
 }
 

@@ -1,4 +1,4 @@
-import { env, hash, serve, SocketAddress } from "bun";
+import { BunFile, env, file, hash, serve, SocketAddress } from "bun";
 
 import { pid } from "node:process";
 
@@ -13,8 +13,8 @@ import { owner } from "./apis/owner";
 import { queue } from "./apis/queue";
 import { exceptionFilter } from "./middlewares/exception-filter";
 import { throttle } from "./middlewares/throttle";
-import { safeInteger } from "./utils/common";
-import { logInfo } from "./utils/logger";
+import { isEmpty, safeInteger } from "./utils/common";
+import { logInfo, logWarn } from "./utils/logger";
 
 type Socket = {
 	Bindings: {
@@ -57,12 +57,28 @@ function main(): Hono<Var & Socket, BlankSchema, "/"> {
 	return api;
 }
 
+function read(path?: string): BunFile | undefined {
+	try {
+		if (isEmpty(path)) {
+			return undefined;
+		}
+		// @ts-expect-error
+		return file(path);
+	} catch (e) {
+		logWarn(String(e));
+		return undefined;
+	}
+}
+
 const server = serve({
 	fetch(req, server): Response | Promise<Response> {
 		return main().fetch(req, { ip: server.requestIP(req) });
 	},
 	port: safeInteger(env.PORT) || 9220,
-	maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768
+	maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768,
+	cert: read(env.PATH_TLS_CERT),
+	key: read(env.PATH_TLS_KEY),
+	ca: read(env.PATH_TLS_CA)
 });
 
 logInfo("Server listening on", server.url.toString(), JSON.stringify({ pid }));
