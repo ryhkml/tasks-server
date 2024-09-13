@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { queue } from "./queue";
 import { tasksDb } from "../db/db";
-import { exceptionFilter } from "../exception/exception-filter";
+import { exceptionFilter } from "../middlewares/exception-filter";
 import { taskSchema } from "../schemas/task";
 import { queuesQuerySchema } from "../schemas/queue";
 import { logInfo } from "../utils/logger";

@@ -8,7 +8,7 @@ import { zValidator } from "@hono/zod-validator";
 import { nanoid  } from "nanoid";
 import { ulid } from "ulid";
 
-import { tasksAuth } from "../auth/auth";
+import { tasksAuth } from "../middlewares/auth";
 import { tasksDb } from "../db/db";
 import { ownerNameSchema } from "../schemas/owner";
 

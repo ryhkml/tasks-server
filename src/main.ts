@@ -11,7 +11,7 @@ import { UTCDate } from "@date-fns/utc";
 
 import { owner } from "./apis/owner";
 import { queue } from "./apis/queue";
-import { exceptionFilter } from "./exception/exception-filter";
+import { exceptionFilter } from "./middlewares/exception-filter";
 import { throttle } from "./middlewares/throttle";
 import { safeInteger } from "./utils/common";
 import { logInfo } from "./utils/logger";

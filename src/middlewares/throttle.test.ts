@@ -7,7 +7,7 @@ import { UTCDate } from "@date-fns/utc";
 
 import { throttle } from "./throttle";
 import { throttleDb } from "../db/db";
-import { exceptionFilter } from "../exception/exception-filter";
+import { exceptionFilter } from "./exception-filter";
 
 type Socket = {
 	Bindings: {

@@ -10,7 +10,7 @@ import { z } from "zod";
 
 import { tasksAuth } from "./auth";
 import { tasksDb } from "../db/db";
-import { exceptionFilter } from "../exception/exception-filter";
+import { exceptionFilter } from "./exception-filter";
 
 describe("TEST AUTH", () => {
 	

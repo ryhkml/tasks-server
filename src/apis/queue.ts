@@ -12,7 +12,7 @@ import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
 import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, interval, map, of, retry, Subscription, take, tap, throwError, timer } from "rxjs";
 import { z } from "zod";
 
-import { tasksAuth } from "../auth/auth";
+import { tasksAuth } from "../middlewares/auth";
 import { tasksDb, timeframeDb } from "../db/db";
 import { taskSchema } from "../schemas/task";
 import { queueIdSchema, queuesQuerySchema } from "../schemas/queue";

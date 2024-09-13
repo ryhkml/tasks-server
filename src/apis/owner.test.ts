@@ -6,7 +6,7 @@ import { UTCDate } from "@date-fns/utc";
 
 import { owner } from "./owner";
 import { tasksDb } from "../db/db";
-import { exceptionFilter } from "../exception/exception-filter";
+import { exceptionFilter } from "../middlewares/exception-filter";
 
 describe("TEST OWNER", () => {
 
