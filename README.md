@@ -23,9 +23,10 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
 | **Feature** | **Tasks** | **Pub/Sub** |
 |---|---|---|
-| **Primary Purpose** | Execute scheduled and delayed tasks | Distribute messages in real-time |
-| **Scheduling** | Yes | No |
-| **Delivery Warranty** | At-least-once delivery | At-least-once delivery (duplicates are possible) |
+| **Purpose** | Execute scheduled and delayed tasks | Distribute messages in real-time |
+| **Communication Model** | Point-to-point (queue based) | Publish/subscribe (broadcast) |
+| **Scheduling** | Yes (with flexibility) | No |
+| **Delivery Warranty** | At-least-once delivery (with retries) | At-least-once delivery (duplicates are possible) |
 | **Delivery Rate Control** | Limited 1000 task in queue | Unlimited |
 | **Failure Handling** | Best (with retries) | Message acknowledgment (subscribers must acknowledge messages after processing) |
 | **Use Cases** | Processing asynchronous tasks such as sending emails or updating databases. Running scheduled tasks such as generating daily reports | Real-time data streaming or Pub/sub systems such as sending notifications or updating caches |
@@ -34,11 +35,12 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
 | **Feature** | **Tasks** | **Cron Job Scheduler** |
 |---|---|---|
-| **Primary Purpose** | Execute scheduled and delayed tasks | Schedule fully managed cron jobs |
-| **Scheduling** | Yes | Yes (cron-schedule fixed interval) |
-| **Delivery Warranty** | At-least-once delivery | Depends on the target service |
+| **Purpose** | Execute scheduled and delayed tasks | Schedule fully managed cron jobs |
+| **Communication Model** | Point-to-point (queue based) | Point-to-point (triggers actions) |
+| **Scheduling** | Yes (with flexibility) | Yes (cron-schedule fixed interval) |
+| **Delivery Warranty** | At-least-once delivery (with retries) | Depends entirely on the target service being triggered |
 | **Delivery Rate Control** | Limited 1000 task in queue | Unlimited |
-| **Failure Handling** | Best (with retries) | No, or depends on the target service |
+| **Failure Handling** | Best (with retries) | No, or Depends entirely on the target service |
 | **Use Cases** | Processing asynchronous tasks such as sending emails or updating databases. Running scheduled tasks such as generating daily reports | Running recurring tasks on a schedule (nightly backups, daily reports, cleanup processing) |
 
 ## Getting Started
@@ -58,7 +60,7 @@ To start the test server, run:
 ```sh
 bun run test
 # Or test specifically the file name
-bun test <FILENAME>
+bun --env-file=.env.test test <FILENAME>
 ```
 
 ## Single-file executable
@@ -164,14 +166,5 @@ or
     }
 }
 ```
-> [!NOTE]
->
-> Properties ending with `"At"` are in UNIX time format `executeAt`, `retryAt`, and `timeoutAt`.
-> 
-> `retryAt` is the same as `retry = 1` with a specific time.
-> 
-> `timeoutAt` will be executed only once. If the task has been retried several times, then it will continue using `timeout`.
-
-To find out milliseconds in various programming languages, you can visit [currentmillis.com](https://currentmillis.com) and remember to set the environment variable `TZ=UTC` on the Tasks Server.
 
 ❌ ## SQLite Backup
