@@ -3,6 +3,7 @@
 set -e
 
 bun -v 1>/dev/null
+curl -V 1>/dev/null
 
 cat .env.example > .env.development
 echo ".env.development file has been created"

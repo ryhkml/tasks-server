@@ -44,7 +44,7 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 | **Use Cases** | Processing asynchronous tasks such as sending emails or updating databases. Running scheduled tasks such as generating daily reports | Running recurring tasks on a schedule (nightly backups, daily reports, cleanup processing) |
 
 ## Getting Started
-Make sure you have [bun](https://bun.sh/docs/installation) installed, run:
+Make sure you have [bun](https://bun.sh/docs/installation) and [curl](https://curl.se/download.html) installed, run:
 ```sh
 ./install.sh
 ```
