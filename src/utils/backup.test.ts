@@ -9,19 +9,26 @@ import { Storage } from "@google-cloud/storage";
 import { extract } from "tar";
 
 import { backupDb } from "./backup";
+import { logInfo } from "./logger";
 
 describe("TEST BACKUP", () => {
+
+	logInfo(`The backup method uses ${env.BACKUP_METHOD_SQLITE}. In addition, the test will be skipped`);
+
 	describe.skipIf(env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE")("", () => {
 		it("should successfully defined env variables for local backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
             expect(env.BACKUP_DIR_SQLITE).toBeDefined();
             expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
-            expect(env.BACKUP_METHOD_SQLITE).toMatch(/(LOCAL|GOOGLE_CLOUD_STORAGE)/i);
+            expect(env.BACKUP_METHOD_SQLITE).toBe("LOCAL");
 		});
 	});
 
 	describe.skipIf(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
 		it("should successfully defined env variables for Google Cloud Storage backup", () => {
+			expect(env.PATH_SQLITE).toBeDefined();
+			expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
+            expect(env.BACKUP_METHOD_SQLITE).toBe("GOOGLE_CLOUD_STORAGE");
 			expect(env.BACKUP_GCS_PROJECT_ID_SQLITE).toBeDefined();
 			expect(env.BACKUP_GCS_PRIVATE_KEY_SQLITE).toBeDefined();
 			expect(env.BACKUP_GCS_CLIENT_ID_SQLITE).toBeDefined();

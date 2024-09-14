@@ -7,7 +7,7 @@ import { basename, dirname } from "node:path";
 import { Storage } from "@google-cloud/storage";
 import { create } from "tar";
 
-export async function backupDb(method?: string): Promise<string> {
+export async function backupDb(method: SqliteBackupMethod = "LOCAL"): Promise<string> {
 	const filename = basename(env.PATH_SQLITE).replace(".db", "-" + new UTCDate().toISOString()) + ".db.tar.gz";
 	if (method == "GOOGLE_CLOUD_STORAGE") {
 		const pathBakDb = "/tmp/tasks/gcs/" + filename;
