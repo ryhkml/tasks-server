@@ -53,14 +53,18 @@ describe("TEST QUEUE", () => {
 			todayAt
 		]);
 		logInfo("Fetch target URL to reduce cold start, please wait!");
-		await fetch(targetUrl, {
-			method: "GET",
-			cache: "no-cache",
-			headers: new Headers({
-				"Cache-Control": "no-cache, no-store, must-revalidate",
-				"Content-Type": "application/json"
-			})
-		});
+		for (let i = 1; i <= 3; i++) {		
+			await fetch(targetUrl, {
+				method: "GET",
+				cache: "no-cache",
+				headers: new Headers({
+					"Cache-Control": "no-cache, no-store, must-revalidate",
+					"Content-Type": "application/json"
+				}),
+				keepalive: true
+			});
+			await sleep(1);
+		}
 	});
 
 	describe("GET /v1/queues", () => {
