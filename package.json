@@ -1,6 +1,7 @@
 {
 	"name": "tasks-server",
-	"version": "1.0.0-alpha.1",
+	"description": "Advanced asynchronous tasks execution",
+	"version": "1.0.0-beta.0",
 	"maintainers": [
 		"Reyhan Kamil"
 	],
