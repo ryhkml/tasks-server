@@ -81,12 +81,19 @@ You can use absolute path or current working path, for example:
 ```
 
 ## APIs
+
 ### Owner
+
+Each owner can have a maximum of 1000 tasks in their task queue.
+
 - ✅ `GET /v1/owners/:name`
 - ✅ `DELETE /v1/owners/:name`
 - ✅ `POST /v1/owners/register`
 
 ### Queue
+
+A queue is a collection of tasks scheduled for later execution. Queues can be paused and resumed, and their size decreases as tasks complete.
+
 - ✅ `GET /v1/queues`
 - ✅ `GET /v1/queues/:id`
 - ❌ `PATCH /v1/queues/:id`
@@ -167,4 +174,28 @@ or
 }
 ```
 
-❌ ## SQLite Backup
+## SQLite Backup
+
+There are two backup methods:
+
+1. **Local**. The local method copies the database file, then moves it to another directory. This method is active by default
+2. **Google Cloud Storage**. The Google Cloud Storage method uploads database files to a Google Cloud Storage. This step is highly recommended.
+
+You can set it via env variable
+
+```sh
+# "LOCAL" or "GOOGLE_CLOUD_STORAGE"
+BACKUP_METHOD_SQLITE="LOCAL"
+```
+
+### Set up authentication for Google Cloud Storage
+
+1. [Create a service](https://cloud.google.com/iam/docs/service-accounts-create#creating) account and do not grant any access, just create!
+2. [Create a new key](https://cloud.google.com/iam/docs/keys-create-delete#iam-service-account-keys-create-console) and select the JSON format
+3. Go to Google Cloud Storage, create a bucket
+4. Select a bucket and click Permissions
+5. In the Permissions section, click Grant Access
+6. Enter the service account email and assign roles:
+	- Storage Object User
+	- Storage Object Viewer
+7. Click save
