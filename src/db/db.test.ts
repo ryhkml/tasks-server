@@ -33,14 +33,14 @@ describe("TEST DATABASE", () => {
 			expect(config?.name).toBe("config");
 		});
 
-		it("should successfully query to the throttle database", async () => {
+		it("should successfully query to the throttle database", () => {
 			const raw = throttleDb.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
 			const control = raw.get("table", "control");
 			expect(control).not.toBeNull();
 			expect(control?.name).toBe("control");
 		});
 
-		it("should successfully query to the timeframe database", async () => {
+		it("should successfully query to the timeframe database", () => {
 			const raw = timeframeDb.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
 			const timeframe = raw.get("table", "timeframe");
 			expect(timeframe).not.toBeNull();
