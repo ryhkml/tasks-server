@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { Hono } from "hono";
 
-import { UTCDate } from "@date-fns/utc";
-
 import { owner } from "./owner";
 import { tasksDb } from "../db/db";
 import { exceptionFilter } from "../middlewares/exception-filter";
@@ -17,7 +15,7 @@ describe("TEST OWNER", () => {
 	const api = new Hono<Var>();
 
 	api.use(async (c, next) => {
-		c.set("todayAt", new UTCDate().getTime());
+		c.set("todayAt", new Date().getTime());
 		await next();
 	});
 

@@ -3,7 +3,6 @@ import { beforeAll, describe, expect, it } from "bun:test";
 
 import { Hono } from "hono";
 
-import { UTCDate } from "@date-fns/utc";
 import { nanoid } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -14,7 +13,7 @@ import { exceptionFilter } from "./exception-filter";
 
 describe("TEST AUTH", () => {
 	
-	const todayAt = new UTCDate().getTime();
+	const todayAt = new Date().getTime();
 	const ownerName = "dummy";
 	let ownerId = "";
 	let key = "";
@@ -23,7 +22,7 @@ describe("TEST AUTH", () => {
 	const api = new Hono<Var>();
 
 	api.use(async (c, next) => {
-		c.set("todayAt", new UTCDate().getTime());
+		c.set("todayAt", new Date().getTime());
 		await next();
 	});
 

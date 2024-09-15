@@ -2,7 +2,6 @@ import { env, hash, readableStreamToText, spawn, spawnSync, write } from "bun";
 
 import { randomBytes } from "node:crypto";
 
-import { UTCDate } from "@date-fns/utc";
 import { Observable, TimeoutError, catchError, defer, map, of, throwError, timeout } from "rxjs";
 import { z } from "zod";
 
@@ -410,7 +409,7 @@ export function http(req: z.infer<typeof taskSchema>, additionalHeaders?: { [k: 
 		}),
 		timeout({
 			first: !!req.config.timeoutAt
-				? new UTCDate(req.config.timeoutAt)
+				? new Date(req.config.timeoutAt)
 				: undefined,
 			each: req.config.timeout
 		}),

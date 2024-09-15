@@ -3,7 +3,6 @@ import { Database } from "bun:sqlite";
 
 import { rm } from "node:fs/promises";
 
-import { UTCDate } from "@date-fns/utc";
 import { logError, logInfo, logWarn } from "./src/utils/logger";
 
 async function init(): Promise<void> {
@@ -53,7 +52,7 @@ async function init(): Promise<void> {
 			const db = new Database(pathTimeframeDb, { strict: true });
 			const raw = await file("src/db/sql/timeframe.sql").text();
 			db.run(raw);
-			db.run("INSERT INTO timeframe (id, lastRecordAt) VALUES (?1, ?2)", [1, UTCDate.now()]);
+			db.run("INSERT INTO timeframe (id, lastRecordAt) VALUES (?1, ?2)", [1, Date.now()]);
 			db.close();
 			await sleep(1);
 			logInfo("Timeframe DB Ok");

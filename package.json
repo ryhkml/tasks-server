@@ -14,7 +14,6 @@
 		"serve:dev": "NODE_ENV=development bun run --hot src/main.ts"
 	},
 	"dependencies": {
-		"@date-fns/utc": "^2.0.1",
 		"@google-cloud/storage": "^7.12.1",
 		"@hono/zod-validator": "^0.2.2",
 		"date-fns": "^3.6.0",

@@ -6,7 +6,6 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { BlankSchema } from "hono/types";
 
-import { UTCDate } from "@date-fns/utc";
 import { zValidator } from "@hono/zod-validator";
 import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
 import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, interval, map, of, retry, Subscription, take, tap, throwError, timer } from "rxjs";
@@ -31,7 +30,7 @@ type QueueHistory = Pick<QueueTable, "ownerId" | "estimateEndAt" | "estimateExec
 type QueueResumable = {
 	queueId: string;
 	ownerId: string;
-	dueTime: number | UTCDate;
+	dueTime: number | Date;
 	estimateExecutionAt: number;
 	body: TaskRequest;
 };
@@ -297,7 +296,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	const queueId = todayAt.toString(16).toUpperCase() + todayAt.toString();
 	const cipherKey = cipherKeyGen(queueId);
 	const dueTime = !!body.config.executeAt
-		? new UTCDate(body.config.executeAt)
+		? new Date(body.config.executeAt)
 		: body.config.executionDelay;
 	const estimateExecutionAt = typeof dueTime === "number"
 		? addMilliseconds(todayAt, dueTime).getTime()
@@ -663,7 +662,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	};
 }
 
-function setScheduler(body: TaskRequest, dueTime: number | UTCDate, queueId: string): void {
+function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string): void {
 	let httpId = "";
 	dueTime = typeof dueTime === "number"
 		? addMilliseconds(dueTime, -1).getTime()
@@ -724,13 +723,13 @@ function setScheduler(body: TaskRequest, dueTime: number | UTCDate, queueId: str
 					retry({
 						count: body.config.retry,
 						delay(error: CurlHttpResponse) {
-							const retryingAt = new UTCDate().getTime();
+							const retryingAt = new Date().getTime();
 							const { retryCount, retryLimit } = stmtRetryCount.get(1, queueId)!;
-							let retryDueTime = 0 as number | UTCDate;
+							let retryDueTime = 0 as number | Date;
 							let estimateNextRetryAt = 0;
 							if (body.config.retryAt) {
-								retryDueTime = new UTCDate(body.config.retryAt);
-								estimateNextRetryAt = new UTCDate(body.config.retryAt).getTime();
+								retryDueTime = new Date(body.config.retryAt);
+								estimateNextRetryAt = new Date(body.config.retryAt).getTime();
 							} else {
 								retryDueTime = body.config.retryExponential
 									? body.config.retryInterval * retryCount
@@ -777,7 +776,7 @@ function setScheduler(body: TaskRequest, dueTime: number | UTCDate, queueId: str
 		)
 		.subscribe({
 			next(res) {
-				stmtQueue.run(res.state, res.status, res.data, new UTCDate().getTime(), queueId);
+				stmtQueue.run(res.state, res.status, res.data, new Date().getTime(), queueId);
 				if (env.LOG == "1") {
 					logInfo("Task", queueId, "done", JSON.stringify({
 						state: res.state,
@@ -786,7 +785,7 @@ function setScheduler(body: TaskRequest, dueTime: number | UTCDate, queueId: str
 				}
 			},
 			error(err: CurlHttpResponse) {
-				stmtQueue.run("ERROR", err.status, err.data, new UTCDate().getTime(), queueId);
+				stmtQueue.run("ERROR", err.status, err.data, new Date().getTime(), queueId);
 				if (env.LOG == "1") {
 					logError("Task", queueId, "error", JSON.stringify({
 						state: err.state,
@@ -800,7 +799,7 @@ function setScheduler(body: TaskRequest, dueTime: number | UTCDate, queueId: str
 
 function resume(q: QueueHistory, endAt: number): QueueResumable {
 	let immediately = false;
-	const resumeAt = new UTCDate().getTime();
+	const resumeAt = new Date().getTime();
 	const cipherKey = cipherKeyGen(q.id);
 	// Utils
 	const parseData = (): string | Exclude<HttpRequest["data"], string> | undefined => {
@@ -947,7 +946,7 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 	};
 	if (q.executeAt) {
 		const executeAt = parseDate(q.executeAt)!;
-		immediately = body.config.executeImmediately && isAfter(new UTCDate().getTime(), new UTCDate(executeAt));
+		immediately = body.config.executeImmediately && isAfter(new Date().getTime(), new Date(executeAt));
 		if (q.retrying) {
 			if (q.retryAt == null) {
 				body.config.retry = q.retryLimit - q.retryCount;
@@ -970,12 +969,12 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			body.config.executionDelay = diffMs;
 		}
 	}
-	const parseDueTime = (): number | UTCDate => {
+	const parseDueTime = (): number | Date => {
 		if (body.config.executeAt) {
 			if (immediately) {
 				return 1;
 			}
-			return new UTCDate(body.config.executeAt);
+			return new Date(body.config.executeAt);
 		}
 		return body.config.executionDelay;
 	}
@@ -1043,7 +1042,7 @@ function reschedule(): void {
 function trackLastRecord(): void {
 	interval(1000).subscribe({
 		next() {
-			stmtTimeframe.run(new UTCDate().getTime(), 1);
+			stmtTimeframe.run(new Date().getTime(), 1);
 		}
 	});
 }

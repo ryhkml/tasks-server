@@ -3,7 +3,6 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, setSystemTime }
 
 import { Hono } from "hono";
 
-import { UTCDate } from "@date-fns/utc";
 import { nanoid } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -25,7 +24,7 @@ describe("TEST QUEUE", () => {
 
 	const ownerName = "test-queue";
 	const targetUrl = "https://us-central1-adroit-cortex-391921.cloudfunctions.net/on-premise-tasks-wht/cb";
-	const todayAt = new UTCDate().getTime();
+	const todayAt = new Date().getTime();
 
 	const stmtQueue = tasksDb.prepare<QueueTable, string>("SELECT * FROM queue WHERE id = ?");
 	const stmtRetryCount = tasksDb.prepare<Pick<ConfigTable, "retryCount">, string>("SELECT retryCount FROM config WHERE id = ?");
@@ -33,7 +32,7 @@ describe("TEST QUEUE", () => {
 	const api = new Hono<Var>();
 	
 	api.use(async (c, next) => {
-		c.set("todayAt", new UTCDate().getTime());
+		c.set("todayAt", new Date().getTime());
 		await next();
 	});
 
@@ -526,7 +525,7 @@ describe("TEST QUEUE", () => {
 
 		describe("", () => {
 			beforeEach(() => {
-				setSystemTime(new UTCDate("Dec 12 2012 12:00:00 PM"));
+				setSystemTime(new Date("Dec 12 2012 12:00:00 PM"));
 			});
 			it("should successfully register and retry with specific date", async () => {
 				const body: TaskRequest = {
@@ -877,7 +876,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				setSystemTime(new UTCDate("Jan 2 6969"));
+				setSystemTime(new Date("Jan 2 6969"));
 			});
 			it("should successfully resume with execute immediately", async () => {
 				const res = await api.request("/v1/queues/" + queueId + "/resume", {

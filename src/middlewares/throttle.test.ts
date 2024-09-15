@@ -3,8 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, setSystemTime } from "bun:
 
 import { Hono } from "hono";
 
-import { UTCDate } from "@date-fns/utc";
-
 import { throttle } from "./throttle";
 import { throttleDb } from "../db/db";
 import { exceptionFilter } from "./exception-filter";
@@ -27,7 +25,7 @@ describe("TEST THROTTLE", () => {
 
 	api.use(async (c, next) => {
 		c.set("clientId", id);
-		c.set("todayAt", new UTCDate().getTime());
+		c.set("todayAt", new Date().getTime());
 		await next();
 	});
 	api.use(throttle);
@@ -80,7 +78,7 @@ describe("TEST THROTTLE", () => {
 
 	describe("", () => {
 		beforeEach(async () => {
-			setSystemTime(new UTCDate("Dec 12 2012 12:00:00 PM"));
+			setSystemTime(new Date("Dec 12 2012 12:00:00 PM"));
 			for (let i = 1; i <= 10; i++) {
 				await api.request("/status", {
 					cache: "no-cache",
@@ -93,7 +91,7 @@ describe("TEST THROTTLE", () => {
 		});
 		it("should reset the count after the time window", async () => {
 			// 1 minute later
-			setSystemTime(new UTCDate("Dec 12 2012 12:01:00 PM"));
+			setSystemTime(new Date("Dec 12 2012 12:01:00 PM"));
 			const res = await api.request("/status", {
 				cache: "no-cache",
 				headers: new Headers({

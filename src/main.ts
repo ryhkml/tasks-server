@@ -7,8 +7,6 @@ import { prettyJSON } from "hono/pretty-json";
 import { secureHeaders } from "hono/secure-headers";
 import { BlankSchema } from "hono/types";
 
-import { UTCDate } from "@date-fns/utc";
-
 import { owner } from "./apis/owner";
 import { queue } from "./apis/queue";
 import { exceptionFilter } from "./middlewares/exception-filter";
@@ -38,7 +36,7 @@ function main(): Hono<Var & Socket, BlankSchema, "/"> {
 	api.use(async (c, next) => {
 		c.set("clientId", hash(c.env.ip.address).toString());
 		c.set("ip", c.env.ip.address);
-		c.set("todayAt", new UTCDate().getTime());
+		c.set("todayAt", new Date().getTime());
 		c.set("userAgent", c.req.header("User-Agent") ?? null);
 		await next();
 	});

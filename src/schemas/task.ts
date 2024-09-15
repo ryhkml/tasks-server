@@ -1,4 +1,3 @@
-import { UTCDate } from "@date-fns/utc";
 import { addMilliseconds, addSeconds, isAfter, isBefore } from "date-fns";
 import { z } from "zod";
 
@@ -102,22 +101,22 @@ export const taskSchema = z.strictObject({
 	config: z.strictObject({
 		executionDelay: z.optional(z.number().gte(0).lte(Number.MAX_SAFE_INTEGER)).default(1),
 		executeAt: z.optional(z.union([
-			z.string().refine(v => dateSchema.safeParse(new UTCDate(v)).success, {
+			z.string().refine(v => dateSchema.safeParse(new Date(v)).success, {
 				message: "Invalid execute date"
 			}),
-			z.number().refine(v => dateSchema.safeParse(new UTCDate(v)).success, {
+			z.number().refine(v => dateSchema.safeParse(new Date(v)).success, {
 				message: "Invalid execute date"
 			})
-		]).refine(v => isAfter(new UTCDate(v), new UTCDate().getTime()), {
+		]).refine(v => isAfter(new Date(v), new Date().getTime()), {
 			message: "Execution date must be greater than today"
 		})),
 		executeImmediately: z.optional(z.boolean()).default(false),
 		retry: z.optional(z.number().gte(0).lte(Number.MAX_SAFE_INTEGER)).default(0),
 		retryAt: z.optional(z.union([
-			z.string().refine(v => dateSchema.safeParse(new UTCDate(v)).success, {
+			z.string().refine(v => dateSchema.safeParse(new Date(v)).success, {
 				message: "Invalid retry date"
 			}),
-			z.number().refine(v => dateSchema.safeParse(new UTCDate(v)).success, {
+			z.number().refine(v => dateSchema.safeParse(new Date(v)).success, {
 				message: "Invalid retry date"
 			})
 		])),
@@ -126,10 +125,10 @@ export const taskSchema = z.strictObject({
 		ignoreStatusCode: z.optional(z.array(z.number().gte(400).lte(599)).max(40)).default([]),
 		timeout: z.optional(z.number().gte(1000).lte(Number.MAX_SAFE_INTEGER)).default(30000),
 		timeoutAt: z.optional(z.union([
-			z.string().refine(v => dateSchema.safeParse(new UTCDate(v)).success, {
+			z.string().refine(v => dateSchema.safeParse(new Date(v)).success, {
 				message: "Invalid timeout date"
 			}),
-			z.number().refine(v => dateSchema.safeParse(new UTCDate(v)).success, {
+			z.number().refine(v => dateSchema.safeParse(new Date(v)).success, {
 				message: "Invalid timeout date"
 			})
 		])),
@@ -246,11 +245,11 @@ export const taskSchema = z.strictObject({
 // Validate date with custom error
 .superRefine(({ config }, ctx) => {
 	const estimateExecutionDate = !!config.executeAt
-		? addSeconds(new UTCDate(config.executeAt), 1)
-		: addSeconds(addMilliseconds(new UTCDate().getTime(), config.executionDelay), 1)
+		? addSeconds(new Date(config.executeAt), 1)
+		: addSeconds(addMilliseconds(new Date().getTime(), config.executionDelay), 1)
 	// Validation retryAt
 	if (config.retryAt) {
-		if (isBefore(new UTCDate(config.retryAt), estimateExecutionDate)) {
+		if (isBefore(new Date(config.retryAt), estimateExecutionDate)) {
 			ctx.addIssue({
 				message: "Retry date must be greater than execution date",
 				code: z.ZodIssueCode.custom,
@@ -260,7 +259,7 @@ export const taskSchema = z.strictObject({
 	}
 	// Validation timeoutAt
 	if (config.timeoutAt && config.retryAt == null) {
-		if (isBefore(new UTCDate(config.timeoutAt), estimateExecutionDate)) {
+		if (isBefore(new Date(config.timeoutAt), estimateExecutionDate)) {
 			ctx.addIssue({
 				message: "Timeout date must be greater than execution date",
 				code: z.ZodIssueCode.custom,
