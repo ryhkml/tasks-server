@@ -1,0 +1,11 @@
+.database/
+
+node_modules/
+
+docker-compose*
+cosign*
+
+.env.example
+
+**/.gitkeep
+**/*.log

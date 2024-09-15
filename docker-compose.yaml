@@ -1,0 +1,33 @@
+services:
+  tasks:
+    container_name: tasks-server
+    hostname: tasks-server
+    restart: unless-stopped
+    tty: true
+    build:
+      args:
+        - PORT=${PORT}
+      context: .
+      no_cache: true
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${PORT}:${PORT}"
+    volumes:
+      - db:/home/nonroot/app/.database
+    networks:
+      - net
+    env_file:
+      - .env.production
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 64M
+    oom_score_adj: 200
+volumes:
+  db:
+networks:
+  net:
