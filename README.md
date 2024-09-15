@@ -69,7 +69,12 @@ To compile single-file executable, run:
 bun run bin
 ```
 
-❌ ## Docker or Podman build
+## Docker build
+To build docker image, run:
+```sh
+docker compose -p tasks --env-file <ENV_FILE> up -d --build
+```
+Task server uses Nix store when building docker image. The Nix store is an abstraction that stores immutable file system data (such as software packages) which can have dependencies on other such data. In this case, Tasks server copies the Nix store directory to a final stage that only requires the curl binary and its dependencies.
 
 ## Path configuration
 You can use absolute path or current working path, for example:
