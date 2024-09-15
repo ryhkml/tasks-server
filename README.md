@@ -137,9 +137,7 @@ The response
     "response": null
 }
 ```
-
-The example above, the task will be executed after waiting for 1 day. If the task receives a 4xx-5xx error response, it will be run again 5 times with a 1-hour interval between each execution. If `retryExponential = true`, the interval between each execution will increase
-
+The example above shows a task scheduled to execute after a 1-day delay. If the task encounters a 4xx or 5xx error response, it will be retried 5 times with a 1-hour interval between each attempt. If `retryExponential` is set to `true`, the interval between retries will increase
 ```txt
 retryInterval = 3600000ms
 
@@ -149,7 +147,7 @@ Retry-3: 3600000 * 3 = 10800000ms
 
 And so on...
 ```
-Additionally, you can make a specific request by using `executeAt`
+Alternatively, you can schedule a task to execute at a specific time using `executeAt`. By default, the task server uses **Coordinated Universal Time** ([UTC](https://currentmillis.com/tutorials/system-currentTimeMillis.html#utc)). Visit [currentmillis.com](https://currentmillis.com) to get the time in milliseconds since the UNIX epoch (January 1, 1970 00:00:00 UTC)
 ```json
 {
     "httpRequest": {
@@ -161,7 +159,7 @@ Additionally, you can make a specific request by using `executeAt`
     }
 }
 ```
-or
+To specify a particular time zone, you can use the specific time zone offset you want, like the example below
 ```json
 {
     "httpRequest": {
@@ -169,10 +167,17 @@ or
         "method": "POST"
     },
     "config": {
-        "executeAt": "Dec 12 2012 12:12:12 AM"
+        "executeAt": "Dec 12 2012 12:12:12 +07:00 AM"
     }
 }
 ```
+`+07:00` indicates a time zone offset of +7 hours from **Coordinated Universal Time** (UTC). This means the time is 7 hours ahead of UTC.
+
+> [!WARNING]
+> 
+> Properties ending with `At` are in UNIX time format, such as `executeAt`, `retryAt`, and `timeoutAt`. Using `retryAt` or `timeoutAt` will execute only once
+
+To ensure consistent timekeeping, configure the task server to use the UTC time zone. This can be achieved by setting the `TZ` environment variable to `UTC`.
 
 ## SQLite Backup
 
