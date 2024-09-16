@@ -11,10 +11,13 @@ import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
 import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, interval, map, of, retry, Subscription, take, tap, throwError, timer } from "rxjs";
 import { z } from "zod";
 
+import Cron from "croner";
+
 import { tasksAuth } from "../middlewares/auth";
 import { tasksDb, timeframeDb } from "../db/db";
 import { taskSchema } from "../schemas/task";
 import { queueIdSchema, queuesQuerySchema } from "../schemas/queue";
+import { backupDb } from "../utils/backup";
 import { safeInteger } from "../utils/common";
 import { connectivity } from "../utils/connectivity";
 import { dec, enc } from "../utils/crypto";
@@ -46,6 +49,27 @@ const stmtRetrying = tasksDb.prepare<Pick<ConfigTable, "retrying">, string>("SEL
 const stmtTimeframe = timeframeDb.prepare<void, [number, number]>("UPDATE timeframe SET lastRecordAt = ?1 WHERE id = ?2");
 const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, number, number, string]>("UPDATE queue SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3 WHERE id = ?4 RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response");
 const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>("SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.* FROM queue AS q JOIN config AS c ON q.id = c.id WHERE q.state = ?1 LIMIT ?2 OFFSET ?3");
+
+const backupJob = Cron(
+	env.BACKUP_CRON_PATTERN_SQLITE || "0 0 * * *",
+	{
+		timezone: env.BACKUP_CRON_TZ_SQLITE || env.TZ,
+		protect: true,
+		paused: true,
+		name: "backup-db"
+	},
+	async () => {
+		try {
+			if (env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE") {
+				await backupDb("GOOGLE_CLOUD_STORAGE");
+			} else {
+				await backupDb();
+			}
+		} catch (err) {
+			logError(String(err));
+		}
+	}
+);
 
 export function queue(): Hono<Var, BlankSchema, "/"> {
 	
@@ -1004,6 +1028,7 @@ function reschedule(): void {
 	const state = raw1.get("RUNNING")!;
 	if (state.count == 0) {
 		trackLastRecord();
+		backupJob.resume();
 		return;
 	}
 	let queuesResumable = [] as QueueResumable[];
@@ -1037,6 +1062,7 @@ function reschedule(): void {
 		setScheduler(queue.body, queue.dueTime, queue.queueId);
 	}
 	trackLastRecord();
+	backupJob.resume();
 }
 
 function trackLastRecord(): void {
