@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { basename, dirname } from "node:path";
 import { rm } from "node:fs/promises";
 
-import { Storage } from "@google-cloud/storage";
+import { Bucket, Storage } from "@google-cloud/storage";
 import { extract } from "tar";
 
 import { backupDb } from "./backup";
@@ -15,7 +15,7 @@ describe("TEST BACKUP", () => {
 
 	logInfo(`The backup method uses ${env.BACKUP_METHOD_SQLITE}. In addition, the test will be skipped`);
 
-	describe.skipIf(env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE")("", () => {
+	describe.if(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
 		it("should successfully defined env variables for local backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
             expect(env.BACKUP_DIR_SQLITE).toBeDefined();
@@ -24,7 +24,7 @@ describe("TEST BACKUP", () => {
 		});
 	});
 
-	describe.skipIf(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
+	describe.if(env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE")("", () => {
 		it("should successfully defined env variables for Google Cloud Storage backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
 			expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
@@ -38,7 +38,7 @@ describe("TEST BACKUP", () => {
 		});
 	});
 
-	describe.skipIf(env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE")("", () => {
+	describe.if(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
 		let pathBakDb = "";
 		beforeAll(async () => {
 			const path = await backupDb();
@@ -90,20 +90,21 @@ describe("TEST BACKUP", () => {
 		});
 	});
 
-	describe.skipIf(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
+	describe.if(env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE")("", () => {
 		let pathBakDb = "";
-		const storage = new Storage({
-			projectId: env.BACKUP_GCS_PROJECT_ID_SQLITE,
-			credentials: {
-				private_key: env.BACKUP_GCS_PRIVATE_KEY_SQLITE,
-				client_id: env.BACKUP_GCS_CLIENT_ID_SQLITE,
-				client_email: env.BACKUP_GCS_CLIENT_EMAIL_SQLITE,
-				type: "service_account"
-			},
-			timeout: 30000
-		});
-		const bucket = storage.bucket(env.BACKUP_BUCKET_NAME_SQLITE!);
+		let bucket: Bucket;
 		beforeAll(async () => {
+			const storage = new Storage({
+				projectId: env.BACKUP_GCS_PROJECT_ID_SQLITE,
+				credentials: {
+					private_key: env.BACKUP_GCS_PRIVATE_KEY_SQLITE,
+					client_id: env.BACKUP_GCS_CLIENT_ID_SQLITE,
+					client_email: env.BACKUP_GCS_CLIENT_EMAIL_SQLITE,
+					type: "service_account"
+				},
+				timeout: 30000
+			});
+			bucket = storage.bucket(env.BACKUP_BUCKET_NAME_SQLITE!);
 			const path = await backupDb("GOOGLE_CLOUD_STORAGE");
 			pathBakDb = path;
 		});
