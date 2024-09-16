@@ -1,10 +1,9 @@
 import { $, which } from "bun";
-import { beforeAll, describe, expect, it } from "bun:test";
+import { describe, expect, it, mock } from "bun:test";
 
 import { lastValueFrom } from "rxjs";
 import { z } from "zod";
 
-import { isEmpty } from "./common";
 import { http } from "./http";
 import { logWarn } from "./logger";
 import { taskSchema } from "../schemas/task";
@@ -22,34 +21,27 @@ describe("TEST HTTP", () => {
 		return taskSchema.safeParse(data);
 	};
 
-	beforeAll(async () => {
-		// Fetch target to reduce cold start
-		await fetch(targetUrl, {
-			method: "GET",
-			cache: "no-cache",
-			headers: new Headers({
-				"Cache-Control": "no-cache, no-store, must-revalidate",
-				"Content-Type": "application/json"
-			})
-		});
+	const mockCAres = mock(async () => {
+		const res = await $`curl -V`.text();
+		return res.trim().includes("c-ares/");
+	});
+	const mockLibGsasl = mock(async () => {
+		const res = await $`curl -V`.text();
+		return res.trim().includes("libgsasl/");
 	});
 
 	describe("curl", async () => {
-		const cAres = await $`curl -V | grep "c-ares" 2>&1`.text();
-		const libGsasl = await $`curl -V | grep "libgsasl" 2>&1`.text();
-		describe("", () => {
-			it("should successfully has the curl command", () => {
-				const command = which("curl");
-				expect(command).not.toBeNull();
-			});
-			it.skipIf(isEmpty(cAres))("should successfully support c-ares", () => {
-				expect(cAres).toBeDefined();
-				expect(cAres).toContain("c-ares");
-			});
-			it.skipIf(isEmpty(libGsasl))("should successfully support libgsasl", () => {
-				expect(libGsasl).toBeDefined();
-				expect(libGsasl).toContain("libgsasl");
-			});
+		it("should successfully has the curl command", () => {
+			const command = which("curl");
+			expect(command).not.toBeNull();
+		});
+		const hasCAres = await mockCAres();
+		it.if(hasCAres)("should successfully support c-ares", () => {
+			expect(hasCAres).toBeTrue();
+		});
+		const hasLibGsasl = await mockLibGsasl();
+		it.if(hasLibGsasl)("should successfully support c-ares", () => {
+			expect(hasLibGsasl).toBeTrue();
 		});
 	});
 
