@@ -1,4 +1,5 @@
 PRAGMA journal_mode = WAL;
+PRAGMA wal_checkpoint(FULL);
 PRAGMA foreign_keys = ON;
 PRAGMA synchronous = FULL;
 PRAGMA temp_store = MEMORY;
