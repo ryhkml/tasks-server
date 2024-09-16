@@ -1,6 +1,7 @@
 declare module "bun" {
 	interface Env {
 		LOG: "0" | "1";
+		LOG_TZ: string;
 		PORT: string;
 		CIPHER_KEY: string;
 		// DB
