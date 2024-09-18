@@ -9,12 +9,12 @@ import { throttleDb } from "../db/db";
 import { safeInteger } from "../utils/common";
 import { logWarn } from "../utils/logger";
 
-const stmtControl = throttleDb.prepare<Omit<ControlTable, "id">, string>("SELECT requestCount, lastRequestAt FROM control WHERE id = ?");
-const stmtRequestCount = throttleDb.prepare<Pick<ControlTable, "requestCount">, string>("UPDATE control SET requestCount = requestCount + 1 WHERE id = ? RETURNING requestCount");
+const stmtControl = throttleDb.query<Omit<ControlTable, "id">, string>("SELECT requestCount, lastRequestAt FROM control WHERE id = ? LIMIT 1");
+const stmtRequestCount = throttleDb.query<Pick<ControlTable, "requestCount">, string>("UPDATE control SET requestCount = requestCount + 1 WHERE id = ? RETURNING requestCount");
 
 export async function throttle(c: Context<Var>, next: Next): Promise<void> {
-	const MAX_REQUEST = safeInteger(env.MAX_THROTTLE_REQUEST);
-	const TIME_WINDOW = safeInteger(env.MAX_THROTTLE_TIME_WINDOW);
+	const MAX_REQUEST = safeInteger(env.MAX_THROTTLE_REQUEST) || 10;
+	const TIME_WINDOW = safeInteger(env.MAX_THROTTLE_TIME_WINDOW) || 60000;
 
 	const id = c.get("clientId");
 	const todayAt = c.get("todayAt");
@@ -29,7 +29,7 @@ export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 				const retryAfter = Math.ceil((TIME_WINDOW - (todayAt - control.lastRequestAt)) / 1000);
 				c.header("RateLimit-Remaining", "0");
 				c.header("RateLimit-Reset", retryAfter.toString());
-				logWarn("Request temporarily blocked", JSON.stringify({
+				logWarn("(429) Request temporarily blocked", JSON.stringify({
 					ip: c.get("ip"),
 					userAgent: c.get("userAgent")
 				}));

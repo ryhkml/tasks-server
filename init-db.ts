@@ -16,10 +16,14 @@ async function init(): Promise<void> {
 		if (forceDelete) {
 			await Promise.all([
 				rm(env.PATH_SQLITE, { force: true }).catch(() => {}),
+				rm(env.PATH_SQLITE + "-shm", { force: true }).catch(() => {}),
+				rm(env.PATH_SQLITE + "-wal", { force: true }).catch(() => {}),
 				rm(pathThrottleDb, { force: true }).catch(() => {}),
 				rm(pathThrottleDb + "-shm", { force: true }).catch(() => {}),
 				rm(pathThrottleDb + "-wal", { force: true }).catch(() => {}),
-				rm(pathTimeframeDb, { force: true }).catch(() => {})
+				rm(pathTimeframeDb, { force: true }).catch(() => {}),
+				rm(pathTimeframeDb + "-shm", { force: true }).catch(() => {}),
+				rm(pathTimeframeDb + "-wal", { force: true }).catch(() => {})
 			]);
 			await sleep(1);
 		}

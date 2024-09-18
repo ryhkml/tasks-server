@@ -10,7 +10,7 @@ import { zValidator } from "@hono/zod-validator";
 import { tasksDb } from "../db/db";
 import { ownerHeadersSchema } from "../schemas/auth";
 
-const stmtKey = tasksDb.prepare<{ key: string }, string>("SELECT key FROM owner WHERE id = ?");
+const stmtKey = tasksDb.query<{ key: string }, string>("SELECT key FROM owner WHERE id = ? LIMIT 1");
 
 export function tasksAuth(): MiddlewareHandler {
 	return every(

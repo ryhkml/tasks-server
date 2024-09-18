@@ -39,16 +39,12 @@ type QueueResumable = {
 };
 
 let subscriptions = [] as { id: string, resource: Subscription }[];
- 
-const stmtTasksInQueue = tasksDb.prepare<{ status: "Ok" }, string>("SELECT 'Ok' AS status FROM owner WHERE id = ? AND tasksInQueue < tasksInQueueLimit");
-const stmtQueue = tasksDb.prepare<void, [TaskState, number, string | null, number, string]>("UPDATE queue SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4 WHERE id = ?5");
-const stmtRetryCount = tasksDb.prepare<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>("UPDATE config SET retrying = ?1 WHERE id = ?2 RETURNING retryCount, retryLimit");
-const stmtQueueError = tasksDb.prepare<void, [number, string, string]>("UPDATE queue SET statusCode = ?1, response = ?2 WHERE id = ?3");
-const stmtRetryCountError = tasksDb.prepare<void, [string, number, string]>("UPDATE config SET headers = ?1, estimateNextRetryAt = ?2 WHERE id = ?3");
-const stmtRetrying = tasksDb.prepare<Pick<ConfigTable, "retrying">, string>("SELECT retrying FROM config WHERE id = ?");
-const stmtTimeframe = timeframeDb.prepare<void, [number, number]>("UPDATE timeframe SET lastRecordAt = ?1 WHERE id = ?2");
-const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, number, number, string]>("UPDATE queue SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3 WHERE id = ?4 RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response");
-const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>("SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.* FROM queue AS q JOIN config AS c ON q.id = c.id WHERE q.state = ?1 LIMIT ?2 OFFSET ?3");
+
+const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>("SELECT 'Ok' AS status FROM owner WHERE id = ? AND tasksInQueue < tasksInQueueLimit");
+const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>("UPDATE queue SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4 WHERE id = ?5");
+const stmtRetryCount = tasksDb.query<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>("UPDATE config SET retrying = ?1 WHERE id = ?2 RETURNING retryCount, retryLimit");
+const stmtQueueError = tasksDb.query<void, [number, string, string]>("UPDATE queue SET statusCode = ?1, response = ?2 WHERE id = ?3");
+const stmtRetryCountError = tasksDb.query<void, [string, number, string]>("UPDATE config SET headers = ?1, estimateNextRetryAt = ?2 WHERE id = ?3");
 
 const backupJob = Cron(
 	env.BACKUP_CRON_PATTERN_SQLITE || "0 0 * * *",
@@ -65,6 +61,7 @@ const backupJob = Cron(
 			} else {
 				await backupDb();
 			}
+			logInfo("Backup done");
 		} catch (err) {
 			logError(String(err));
 		}
@@ -132,6 +129,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, response
 				FROM queue
 				WHERE id = ?
+				LIMIT 1
 			`);
 			const queue = raw.get(queueId);
 			if (queue == null) {
@@ -224,13 +222,20 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				FROM queue AS q
 				JOIN config AS c ON q.id = c.id
 				WHERE q.id = ?1 AND q.state = ?2
+				LIMIT 1
 			`);
 			const queue = raw1.get(queueId, "PAUSED");
 			if (queue == null) {
 				throw new HTTPException(422);
 			}
 			const { body, dueTime, estimateExecutionAt } = resume(queue, queue.estimateEndAt);
-			const currentQueue = stmtQueueResumable.get("RUNNING", 0, estimateExecutionAt, queueId)!;
+			const raw2 = tasksDb.query<Queue, [TaskState, 0, number, string]>(`
+				UPDATE queue
+				SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
+				WHERE id = ?4
+				RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
+			`);
+			const currentQueue = raw2.get("RUNNING", 0, estimateExecutionAt, queueId)!;
 			setScheduler(body, dueTime, queueId);
 			return c.json(currentQueue);
 		}
@@ -263,6 +268,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				SELECT 'Done' AS status
 				FROM queue
 				WHERE id = ?1 AND state = ?2
+				LIMIT 1
 			`);
 			const queue = raw.get(queueId, "PAUSED");
 			if (queue) {
@@ -292,7 +298,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 			const subscription = subscriptions.find(s => s.id == queueId);
 			const raw = tasksDb.query<{ status: "Done" }, string>(`
 				DELETE FROM queue
-				WHERE id = ? AND ownerId IN (SELECT id FROM owner)
+				WHERE id = ?
 				RETURNING 'Done' AS status
 			`);
 			if (subscription) {
@@ -695,14 +701,12 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 		id: queueId,
 		resource: timer(dueTime).pipe(
 			expand((_, i) => defer(() => connectivity()).pipe(
-				tap({
-					next(connectivity) {
-						if (env.LOG == "1") {
-							if (connectivity == "ONLINE") {
-								logInfo("Connectivity online");
-							} else {
-								logWarn("Connectivity offline");
-							}
+				tap(connectivity => {
+					if (env.LOG == "1") {
+						if (connectivity == "ONLINE") {
+							logInfo("Connectivity online");
+						} else {
+							logWarn("Connectivity offline");
 						}
 					}
 				}),
@@ -712,14 +716,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 			take(1),
 			exhaustMap(() => {
 				let additionalHeaders = { "X-Tasks-Queue-Id": queueId } as RecordString;
-				const sourceHttp = defer(() => {
-					const { retrying } = stmtRetrying.get(queueId)!;
-					if (retrying) {
-						body.config.timeoutAt = undefined;
-					}
-					return http(body, additionalHeaders);
-				});
-				return sourceHttp.pipe(
+				return defer(() => http(body, additionalHeaders)).pipe(
 					map(res => {
 						if (res.data) {
 							res.data = enc(res.data, cipherKeyGen(queueId));
@@ -747,10 +744,10 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 					retry({
 						count: body.config.retry,
 						delay(error: CurlHttpResponse) {
-							const retryingAt = new Date().getTime();
-							const { retryCount, retryLimit } = stmtRetryCount.get(1, queueId)!;
 							let retryDueTime = 0 as number | Date;
 							let estimateNextRetryAt = 0;
+							const retryingAt = new Date().getTime();
+							const { retryCount, retryLimit } = stmtRetryCount.get(1, queueId)!;
 							if (body.config.retryAt) {
 								retryDueTime = new Date(body.config.retryAt);
 								estimateNextRetryAt = new Date(body.config.retryAt).getTime();
@@ -760,6 +757,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 									: body.config.retryInterval;
 								estimateNextRetryAt = addMilliseconds(retryingAt, retryDueTime).getTime();
 							}
+							body.config.timeoutAt = undefined;
 							additionalHeaders = {
 								...additionalHeaders,
 								"X-Tasks-Retry-Count": retryCount.toString(),
@@ -993,6 +991,9 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			body.config.executionDelay = diffMs;
 		}
 	}
+	if (q.retrying && body.config.timeoutAt) {
+		body.config.timeoutAt = undefined;
+	}
 	const parseDueTime = (): number | Date => {
 		if (body.config.executeAt) {
 			if (immediately) {
@@ -1035,6 +1036,13 @@ function reschedule(): void {
 	const raw2 = timeframeDb.query<{ lastRecordAt: number }, number>("SELECT lastRecordAt FROM timeframe WHERE id = ?");
 	const timeframe = raw2.get(1)!;
 	const batchSize = 500;
+	const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
+		SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.*
+		FROM queue AS q JOIN config AS c ON q.id = c.id
+		WHERE q.state = ?1
+		LIMIT ?2
+		OFFSET ?3
+	`);
 	for (let i = 0; i < Math.max(Math.ceil(state.count / batchSize), 1); i++) {
 		const offset = i * batchSize;
 		const queuesHistory = stmtQueuesHistory.all("RUNNING", Math.min(batchSize, state.count - offset), offset);
@@ -1044,6 +1052,12 @@ function reschedule(): void {
 			queuesResumable.push(queue);
 		}
 	}
+	const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, 0, number, string]>(`
+		UPDATE queue
+		SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
+		WHERE id = ?4
+		RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
+	`);
 	if (queuesResumable.length == 1) {
 		const queue = queuesResumable[0];
 		stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
@@ -1066,9 +1080,14 @@ function reschedule(): void {
 }
 
 function trackLastRecord(): void {
+	const stmt = timeframeDb.query<void, [number, 1]>(`
+		UPDATE timeframe
+		SET lastRecordAt = ?1
+		WHERE id = ?2
+	`);
 	interval(1000).subscribe({
 		next() {
-			stmtTimeframe.run(new Date().getTime(), 1);
+			stmt.run(new Date().getTime(), 1);
 		}
 	});
 }

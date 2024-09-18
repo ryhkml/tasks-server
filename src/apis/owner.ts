@@ -12,7 +12,7 @@ import { tasksAuth } from "../middlewares/auth";
 import { tasksDb } from "../db/db";
 import { ownerNameSchema } from "../schemas/owner";
 
-const stmtIsRegistered = tasksDb.prepare<{ isRegistered: 0 | 1 }, string>("SELECT EXISTS (SELECT 1 FROM owner WHERE name = ?) AS isRegistered");
+const stmtIsRegistered = tasksDb.query<{ isRegistered: 0 | 1 }, string>("SELECT EXISTS (SELECT 1 FROM owner WHERE name = ?) AS isRegistered");
 
 export function owner(): Hono<Var, BlankSchema, "/"> {
 
@@ -44,7 +44,10 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 			const id = ulid(todayAt);
 			const key = nanoid(42);
 			const secretKey = await password.hash(key);
-			tasksDb.run("INSERT INTO owner (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [
+			tasksDb.run(`
+				INSERT INTO owner (id, key, name, createdAt)
+				VALUES (?1, ?2, ?3, ?4)
+			`, [
 				id,
 				secretKey,
 				name,
@@ -72,6 +75,7 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 				SELECT id, name, createdAt, tasksInQueue, tasksInQueueLimit
 				FROM owner
 				WHERE id = ?1 AND name = ?2
+				LIMIT 1
 			`)
 			const owner = raw.get(id, name);
 			if (owner == null) {
