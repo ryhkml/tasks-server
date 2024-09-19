@@ -1021,6 +1021,9 @@ function cipherKeyGen(id: string): string {
 }
 
 function reschedule(): void {
+	if (safeInteger(env.CLUSTER_MODE) && safeInteger(env.SPAWN_INSTANCE) != 0) {
+		return;
+	}
 	const raw1 = tasksDb.query<{ count: number }, TaskState>(`
 		SELECT COUNT(*) AS count
 		FROM queue

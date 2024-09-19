@@ -9,6 +9,7 @@
 	"private": true,
 	"scripts": {
 		"bin": "bun build --compile --minify --sourcemap src/main.ts --outfile ./tasks-server",
+		"bin:cluster": "bun run bin && bun build --compile --minify --sourcemap cluster.ts --outfile ./tasks-server-cluster",
 		"test": "bun --env-file=.env.test run init-db.ts -f && bun --env-file=.env.test test --timeout 30000",
 		"serve": "NODE_ENV=production ./tasks-server",
 		"serve:dev": "NODE_ENV=development bun run --hot src/main.ts"

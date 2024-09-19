@@ -72,6 +72,7 @@ const server = serve({
 	fetch(req, server): Response | Promise<Response> {
 		return main().fetch(req, { ip: server.requestIP(req) });
 	},
+	reusePort: safeInteger(env.CLUSTER_MODE) == 1,
 	port: safeInteger(env.PORT) || 9220,
 	maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768,
 	cert: read(env.PATH_TLS_CERT),
