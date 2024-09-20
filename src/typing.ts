@@ -4,6 +4,8 @@ declare module "bun" {
 		LOG_TZ: string;
 		PORT: string;
 		CIPHER_KEY: string;
+		CLUSTER_MODE?: "0" | "1";
+		MAX_INSTANCES?: string;
 		// DB
 		PATH_SQLITE: string;
 		// DB Backup

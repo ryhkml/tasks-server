@@ -11,6 +11,7 @@ import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
 import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, interval, map, of, retry, Subscription, take, tap, throwError, timer } from "rxjs";
 import { z } from "zod";
 
+import cluster from "node:cluster";
 import Cron from "croner";
 
 import { tasksAuth } from "../middlewares/auth";
@@ -39,6 +40,8 @@ type QueueResumable = {
 };
 
 let subscriptions = [] as { id: string, resource: Subscription }[];
+
+const clusterOn = env.CLUSTER_MODE == "1";
 
 const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>("SELECT 'Ok' AS status FROM owner WHERE id = ? AND tasksInQueue < tasksInQueueLimit");
 const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>("UPDATE queue SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4 WHERE id = ?5");
@@ -185,22 +188,34 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 		}),
 		(c) => {
 			const { queueId } = c.req.valid("param");
-			const subscription = subscriptions.find(s => s.id == queueId && !s.resource.closed);
-			if (subscription) {
-				subscription.resource.unsubscribe();
-				subscriptions = subscriptions.filter(s => !s.resource.closed);
-				tasksDb.run<[TaskState, number, string]>(`
-					UPDATE queue
-					SET state = ?1, estimateEndAt = ?2
-					WHERE id = ?3
-				`, [
-					"PAUSED",
-					c.get("todayAt"),
-					queueId
-				]);
-				return c.json({ status: "Done" });
+			const raw = tasksDb.query<{ status: "Ok" }, [string, TaskState]>(`
+				SELECT 'Done' AS status
+				FROM queue
+				WHERE id = ?1 AND state = ?2
+				LIMIT 1
+			`);
+			const status = raw.get(queueId, "RUNNING");
+			if (status == null) {
+				throw new HTTPException(422);
 			}
-			throw new HTTPException(422);
+			tasksDb.run<[TaskState, number, string]>(`
+				UPDATE queue
+				SET state = ?1, estimateEndAt = ?2
+				WHERE id = ?3
+			`, [
+				"PAUSED",
+				c.get("todayAt"),
+				queueId
+			]);
+			if (clusterOn && process.send) {
+				process.send({
+					emit: "REVOKE",
+					queueId
+				});
+			} else {
+				cleanupScheduler(queueId);
+			}
+			return c.json(status);
 		}
 	);
 
@@ -254,31 +269,29 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 		}),
 		(c) => {
 			const { queueId } = c.req.valid("param");
-			const subscription = subscriptions.find(s => s.id == queueId && !s.resource.closed);
-			if (subscription) {
-				subscription.resource.unsubscribe();
-				subscriptions = subscriptions.filter(s => !s.resource.closed);
-				tasksDb.transaction(() => {
-					stmtQueue.run("REVOKED", 0, null, c.get("todayAt"), queueId);
-					stmtRetryCount.run(0, queueId);
-				})();
-				return c.json({ status: "Done" });
-			}
-			const raw = tasksDb.query<{ status: "Done" }, [string, TaskState]>(`
+			const raw = tasksDb.query<{ status: "Done" }, [string, TaskState, TaskState]>(`
 				SELECT 'Done' AS status
 				FROM queue
-				WHERE id = ?1 AND state = ?2
+				WHERE id = ?1 AND state IN (?2, ?3)
 				LIMIT 1
 			`);
-			const queue = raw.get(queueId, "PAUSED");
-			if (queue) {
-				tasksDb.transaction(() => {
-					stmtQueue.run("REVOKED", 0, null, c.get("todayAt"), queueId);
-					stmtRetryCount.run(0, queueId);
-				})();
-				return c.json(queue);
+			const queue = raw.get(queueId, "RUNNING", "PAUSED");
+			if (queue == null) {
+				throw new HTTPException(422);
 			}
-			throw new HTTPException(422);
+			tasksDb.transaction(() => {
+				stmtQueue.run("REVOKED", 0, null, c.get("todayAt"), queueId);
+				stmtRetryCount.run(0, queueId);
+			})();
+			if (clusterOn && process.send) {
+				process.send({
+					emit: "REVOKE",
+					queueId
+				});
+			} else {
+				cleanupScheduler(queueId);
+			}
+			return c.json(queue);
 		}
 	);
 
@@ -295,25 +308,24 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 		}),
 		(c) => {
 			const { queueId } = c.req.valid("param");
-			const subscription = subscriptions.find(s => s.id == queueId);
-			const raw = tasksDb.query<{ status: "Done" }, string>(`
+			const raw = tasksDb.query<Queue, string>(`
 				DELETE FROM queue
 				WHERE id = ?
 				RETURNING 'Done' AS status
 			`);
-			if (subscription) {
-				if (!subscription.resource.closed) {
-					subscription.resource.unsubscribe();
-				}
-				subscriptions = subscriptions.filter(s => !s.resource.closed);
-				const deleted = raw.get(queueId)!;
-				return c.json(deleted);
-			}
 			const deleted = raw.get(queueId);
-			if (deleted) {
-				return c.json(deleted);
+			if (deleted == null) {
+				throw new HTTPException(422);
 			}
-			throw new HTTPException(422);
+			if (clusterOn && process.send) {
+				process.send({
+					emit: "REVOKE",
+					queueId
+				});
+			} else {
+				cleanupScheduler(queueId);
+			}
+			return c.json(deleted);
 		}
 	);
 
@@ -819,6 +831,18 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 	});
 }
 
+function cleanupScheduler(queueId: string): void {
+	const subscription = subscriptions.find(s => s.id == queueId);
+	if (subscription) {
+		if (subscription.resource.closed) {
+			subscriptions = subscriptions.filter(s => !s.resource.closed);
+		} else {
+			subscription.resource.unsubscribe();
+			subscriptions = subscriptions.filter(s => !s.resource.closed);
+		}
+	}
+}
+
 function resume(q: QueueHistory, endAt: number): QueueResumable {
 	let immediately = false;
 	const resumeAt = new Date().getTime();
@@ -1021,8 +1045,12 @@ function cipherKeyGen(id: string): string {
 }
 
 function reschedule(): void {
-	if (safeInteger(env.CLUSTER_MODE) && safeInteger(env.SPAWN_INSTANCE) != 0) {
-		return;
+	if (clusterOn) {
+		runMessageEmitter();
+		if (!cluster.isPrimary) {
+			backupJob.stop();
+			return;
+		}
 	}
 	const raw1 = tasksDb.query<{ count: number }, TaskState>(`
 		SELECT COUNT(*) AS count
@@ -1091,6 +1119,14 @@ function trackLastRecord(): void {
 	interval(1000).subscribe({
 		next() {
 			stmt.run(new Date().getTime(), 1);
+		}
+	});
+}
+
+function runMessageEmitter(): void {
+	process.on("message", (message: RecordString) => {
+		if (message.emit == "REVOKE") {
+			cleanupScheduler(message.queueId);
 		}
 	});
 }

@@ -1,6 +1,6 @@
 import { BunFile, env, file, hash, serve, SocketAddress } from "bun";
 
-import { pid } from "node:process";
+import cluster from "node:cluster";
 
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
@@ -19,6 +19,10 @@ type Socket = {
 		ip: SocketAddress;
 	};
 };
+
+const MAX_INSTANCES = env.MAX_INSTANCES == "MAX"
+	? navigator.hardwareConcurrency
+	: safeInteger(env.MAX_INSTANCES);
 
 function main(): Hono<Var & Socket, BlankSchema, "/"> {
 
@@ -68,16 +72,52 @@ function read(path?: string): BunFile | undefined {
 	}
 }
 
-const server = serve({
-	fetch(req, server): Response | Promise<Response> {
-		return main().fetch(req, { ip: server.requestIP(req) });
-	},
-	reusePort: safeInteger(env.CLUSTER_MODE) == 1,
-	port: safeInteger(env.PORT) || 9220,
-	maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768,
-	cert: read(env.PATH_TLS_CERT),
-	key: read(env.PATH_TLS_KEY),
-	ca: read(env.PATH_TLS_CA)
-});
+/**
+ * Note that currently.
+ * 
+ * reusePort is only effective on Linux.
+ * On Windows and macOS, the operating system does not load balance HTTP connections as one would expect.
+*/
+function startServer(reusePort?: boolean): void {
+	const server = serve({
+		fetch: (req, server) => main().fetch(req, { ip: server.requestIP(req) }),
+		reusePort,
+		port: safeInteger(env.PORT) || 9220,
+		maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768,
+		cert: read(env.PATH_TLS_CERT),
+		key: read(env.PATH_TLS_KEY),
+		ca: read(env.PATH_TLS_CA)
+	});
+	logInfo("Server listening on", server.url.toString(), JSON.stringify({ pid: process.pid }));
+}
 
-logInfo("Server listening on", server.url.toString(), JSON.stringify({ pid }));
+function inRangeInstances(amount: number): boolean {
+	return (
+		Math.min(2, navigator.hardwareConcurrency) <= amount &&
+		amount <= Math.max(2, navigator.hardwareConcurrency)
+	);
+}
+
+if (env.CLUSTER_MODE == "1" && inRangeInstances(MAX_INSTANCES)) {
+	if (cluster.isPrimary) {
+		logInfo("Starting cluster mode");
+		const send = (data: RecordString): void => {
+			for (const id in cluster.workers) {
+				cluster.workers[id]?.send(data);
+			}
+		};
+		for (let i = 0; i < MAX_INSTANCES; i++) {
+			const worker = cluster.fork({
+				SPAWN_INSTANCE: i.toString()
+			});
+			worker.on("message", send);
+		}
+		cluster.on("exit", (worker) => {
+			logWarn("Worker died", worker.process.pid);
+		});
+	} else {
+		startServer(true);
+	}
+} else {
+	startServer();
+}
