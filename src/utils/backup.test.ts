@@ -57,7 +57,7 @@ describe("TEST BACKUP", () => {
 			// Tasks
 			const pathDb1 = env.BACKUP_DIR_SQLITE + "/" + basename(env.PATH_SQLITE);
 			const db1 = new Database(pathDb1, { strict: true, create: false });
-			const raw1 = db1.prepare<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+			const raw1 = db1.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
 			const owner = raw1.get("table", "owner");
 			expect(owner).not.toBeNull();
 			expect(owner?.name).toBe("owner");
@@ -67,6 +67,9 @@ describe("TEST BACKUP", () => {
 			const config = raw1.get("table", "config");
 			expect(config).not.toBeNull();
 			expect(config?.name).toBe("config");
+			const timeframe = raw1.get("table", "timeframe");
+			expect(timeframe).not.toBeNull();
+			expect(timeframe?.name).toBe("timeframe");
 			// Throttle
 			const pathDb2 = env.BACKUP_DIR_SQLITE + "/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
 			const db2 = new Database(pathDb2, { strict: true, create: false });
@@ -74,13 +77,6 @@ describe("TEST BACKUP", () => {
 			const control = raw2.get("table", "control");
 			expect(control).not.toBeNull();
 			expect(control?.name).toBe("control");
-			// Timeframe
-			const pathDb3 = env.BACKUP_DIR_SQLITE + "/" + basename(env.PATH_SQLITE).replace(".db", "-timeframe.db");
-			const db3 = new Database(pathDb3, { strict: true, create: false });
-			const raw3 = db3.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
-			const timeframe = raw3.get("table", "timeframe");
-			expect(timeframe).not.toBeNull();
-			expect(timeframe?.name).toBe("timeframe");
 		});
 		afterAll(async () => {
 			await rm(dirname(pathBakDb), {
@@ -124,7 +120,7 @@ describe("TEST BACKUP", () => {
 			// Tasks
 			const pathDb1 = "/tmp/tasks/gcs/" + basename(env.PATH_SQLITE);
 			const db1 = new Database(pathDb1, { strict: true, create: false });
-			const raw1 = db1.prepare<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+			const raw1 = db1.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
 			const owner = raw1.get("table", "owner");
 			expect(owner).not.toBeNull();
 			expect(owner?.name).toBe("owner");
@@ -134,6 +130,9 @@ describe("TEST BACKUP", () => {
 			const config = raw1.get("table", "config");
 			expect(config).not.toBeNull();
 			expect(config?.name).toBe("config");
+			const timeframe = raw1.get("table", "timeframe");
+			expect(timeframe).not.toBeNull();
+			expect(timeframe?.name).toBe("timeframe");
 			// Throttle
 			const pathDb2 = "/tmp/tasks/gcs/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
 			const db2 = new Database(pathDb2, { strict: true, create: false });
@@ -141,13 +140,6 @@ describe("TEST BACKUP", () => {
 			const control = raw2.get("table", "control");
 			expect(control).not.toBeNull();
 			expect(control?.name).toBe("control");
-			// Timeframe
-			const pathDb3 = "/tmp/tasks/gcs/" + basename(env.PATH_SQLITE).replace(".db", "-timeframe.db");
-			const db3 = new Database(pathDb3, { strict: true, create: false });
-			const raw3 = db3.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
-			const timeframe = raw3.get("table", "timeframe");
-			expect(timeframe).not.toBeNull();
-			expect(timeframe?.name).toBe("timeframe");
 		});
 		afterAll(async () => {
 			await Promise.all([

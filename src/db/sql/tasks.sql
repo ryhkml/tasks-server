@@ -136,3 +136,11 @@ WHEN NEW.retrying = 1
 BEGIN
 	UPDATE config SET retryCount = retryCount + 1 WHERE id = NEW.id;
 END;
+
+-- 
+
+CREATE TABLE timeframe (
+	id 				INTEGER PRIMARY KEY,
+	lastRecordAt	INTEGER NOT NULL,
+	data			TEXT NULL
+);
