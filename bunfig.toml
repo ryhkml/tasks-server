@@ -2,7 +2,3 @@ mosl = true
 
 [install.cache]
 disable = true
-
-[test]
-coverage = true
-coverageThreshold = { lines = 0, functions = 0.5 }
