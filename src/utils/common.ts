@@ -1,3 +1,7 @@
+export function inRange(v: number, min: number, max: number): boolean {
+	return (Math.min(min, max) <= v && v <= Math.max(min, max));
+}
+
 export function isEmpty<T>(v: T): boolean {
 	// @ts-expect-error
 	return [Object, Array].includes((v || {}).constructor) && !Object.entries((v || {})).length;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { isEmpty, isPlainObject, safeInteger } from "./common";
+import { inRange, isEmpty, isPlainObject, safeInteger } from "./common";
 
 describe("TEST COMMON", () => {	
 	describe("lang", () => {
@@ -34,6 +34,17 @@ describe("TEST COMMON", () => {
 				expect(check1).toBeFalse();
 				expect(check2).toBeFalse();
 				expect(check3).toBeFalse();
+			});
+		});
+
+		describe("inRange", () => {
+			it("should return true if a value is in range", () => {
+				const value = 1;
+				expect(inRange(value, 1, 68)).toBeTrue();
+			});
+			it("should return false if a value is not in range", () => {
+				const value = 69;
+				expect(inRange(value, 1, 68)).toBeFalse();
 			});
 		});
 		
