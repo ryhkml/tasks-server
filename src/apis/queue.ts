@@ -8,14 +8,14 @@ import { BlankSchema } from "hono/types";
 
 import { zValidator } from "@hono/zod-validator";
 import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
-import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, interval, map, of, retry, Subscription, take, tap, throwError, timer } from "rxjs";
+import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, map, of, retry, Subscription, take, tap, throwError, timer } from "rxjs";
 import { z } from "zod";
 
 import cluster from "node:cluster";
 import Cron from "croner";
 
 import { tasksAuth } from "../middlewares/auth";
-import { tasksDb, timeframeDb } from "../db/db";
+import { tasksDb } from "../db/db";
 import { taskSchema } from "../schemas/task";
 import { queueIdSchema, queuesQuerySchema } from "../schemas/queue";
 import { backupDb } from "../utils/backup";
@@ -24,6 +24,7 @@ import { connectivity } from "../utils/connectivity";
 import { dec, enc } from "../utils/crypto";
 import { http } from "../utils/http";
 import { logError, logInfo, logWarn } from "../utils/logger";
+import { clusterMode, MAX_INSTANCES } from "../utils/cluster";
 
 type TaskRequest = z.infer<typeof taskSchema>;
 type HttpRequest = TaskRequest["httpRequest"];
@@ -40,8 +41,6 @@ type QueueResumable = {
 };
 
 let subscriptions = [] as { id: string, resource: Subscription }[];
-
-const clusterOn = env.CLUSTER_MODE == "1";
 
 const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>("SELECT 'Ok' AS status FROM owner WHERE id = ? AND tasksInQueue < tasksInQueueLimit");
 const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>("UPDATE queue SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4 WHERE id = ?5");
@@ -72,7 +71,7 @@ const backupJob = Cron(
 );
 
 export function queue(): Hono<Var, BlankSchema, "/"> {
-	
+
 	const api = new Hono<Var>();
 
 	api.get(
@@ -207,7 +206,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				c.get("todayAt"),
 				queueId
 			]);
-			if (clusterOn && process.send) {
+			if (clusterMode == "ACTIVE" && process.send) {
 				process.send({
 					emit: "REVOKE",
 					queueId
@@ -283,7 +282,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				stmtQueue.run("REVOKED", 0, null, c.get("todayAt"), queueId);
 				stmtRetryCount.run(0, queueId);
 			})();
-			if (clusterOn && process.send) {
+			if (clusterMode == "ACTIVE" && process.send) {
 				process.send({
 					emit: "REVOKE",
 					queueId
@@ -317,7 +316,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 			if (deleted == null) {
 				throw new HTTPException(422);
 			}
-			if (clusterOn && process.send) {
+			if (clusterMode == "ACTIVE" && process.send) {
 				process.send({
 					emit: "REVOKE",
 					queueId
@@ -1040,87 +1039,177 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 	};
 }
 
+function chunk(qs: QueueResumable[]): QueueResumable[][] {
+	let save = [] as QueueResumable[][];
+	const queuePerWorker = Math.ceil(qs.length / MAX_INSTANCES);
+	for (let i = 0; i < MAX_INSTANCES; i++) {
+		const start = i * queuePerWorker;
+		const end = start + queuePerWorker;
+		const splitQueues = qs.slice(start, end);
+		save.push(splitQueues);
+	}
+	return save;
+}
+
 function cipherKeyGen(id: string): string {
 	return "cipher://" + id + env.CIPHER_KEY;
 }
 
 function reschedule(): void {
-	if (clusterOn) {
+	if (clusterMode == "ACTIVE" && cluster.isWorker) {
 		runMessageEmitter();
-		if (!cluster.isPrimary) {
-			backupJob.stop();
-			return;
-		}
+		backupJob.stop();
 	}
-	const raw1 = tasksDb.query<{ count: number }, TaskState>(`
-		SELECT COUNT(*) AS count
-		FROM queue
-		WHERE state = ?
+	const raw = tasksDb.query<{ count: number, lastRecordAt: number }, TaskState>(`
+		SELECT
+		(SELECT COUNT(*) FROM queue WHERE state = ?1) AS count,
+		(SELECT lastRecordAt FROM timeframe WHERE id = 1 LIMIT 1) AS lastRecordAt
 	`);
-	const state = raw1.get("RUNNING")!;
-	if (state.count == 0) {
-		trackLastRecord();
-		backupJob.resume();
+	const { count, lastRecordAt } = raw.get("RUNNING")!;
+	if (count == 0) {
+		if (clusterMode == "ACTIVE" && cluster.isPrimary) {
+			backupJob.resume();
+		}
+		if (clusterMode == "INACTIVE") {
+			backupJob.resume();
+		}
+		raw.finalize();
 		return;
 	}
 	let queuesResumable = [] as QueueResumable[];
-	const raw2 = timeframeDb.query<{ lastRecordAt: number }, number>("SELECT lastRecordAt FROM timeframe WHERE id = ?");
-	const timeframe = raw2.get(1)!;
 	const batchSize = 500;
-	const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
-		SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.*
-		FROM queue AS q JOIN config AS c ON q.id = c.id
-		WHERE q.state = ?1
-		LIMIT ?2
-		OFFSET ?3
-	`);
-	for (let i = 0; i < Math.max(Math.ceil(state.count / batchSize), 1); i++) {
-		const offset = i * batchSize;
-		const queuesHistory = stmtQueuesHistory.all("RUNNING", Math.min(batchSize, state.count - offset), offset);
-		for (let ii = 0; ii < queuesHistory.length; ii++) {
-			const queueHistory = queuesHistory[ii];
-			const queue = resume(queueHistory, timeframe.lastRecordAt);
-			queuesResumable.push(queue);
+	// 
+	if (clusterMode == "ACTIVE") {
+		if (cluster.isPrimary) {
+			const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
+				SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.*
+				FROM queue AS q JOIN config AS c ON q.id = c.id
+				WHERE q.state = ?1
+				LIMIT ?2
+				OFFSET ?3
+			`);
+			const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, 0, number, string]>(`
+				UPDATE queue
+				SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
+				WHERE id = ?4
+				RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
+			`);
+			for (let i = 0; i < Math.max(Math.ceil(count / batchSize), 1); i++) {
+				const offset = i * batchSize;
+				const queuesHistory = stmtQueuesHistory.all("RUNNING", Math.min(batchSize, count - offset), offset);
+				for (let ii = 0; ii < queuesHistory.length; ii++) {
+					const queueHistory = queuesHistory[ii];
+					const queue = resume(queueHistory, lastRecordAt);
+					queuesResumable.push(queue);
+				}
+			};
+			tasksDb.run("UPDATE timeframe SET data = ? WHERE id = 1", [
+				Buffer.from(JSON.stringify(queuesResumable)).toString("base64")
+			]);
+			if (queuesResumable.length == 1) {
+				logInfo("Reschedule 1 task");
+				const queue = queuesResumable[0];
+				stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
+			} else {
+				logInfo("Reschedule", queuesResumable.length, "tasks");
+				tasksDb.transaction(() => {
+					for (let i = 0; i < queuesResumable.length; i++) {
+						const queue = queuesResumable[i];
+						stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
+					}
+				})();
+			}
+			setImmediate(() => {
+				backupJob.resume();
+				stmtQueuesHistory.finalize();
+				stmtQueueResumable.finalize();
+			});
+		}
+		if (cluster.isWorker) {
+			const raw = tasksDb.query<{ data: string }, []>(`
+				SELECT data
+				FROM timeframe
+				WHERE id = 1
+				LIMIT 1
+			`);
+			const { data } = raw.get()!;
+			queuesResumable = JSON.parse(Buffer.from(data, "base64").toString());
+			const workerIndex = safeInteger(env.SPAWN_INSTANCE);
+			if (queuesResumable.length == 1) {
+				if (workerIndex == 0) {
+					const queue = queuesResumable[0];
+					setScheduler(queue.body, queue.dueTime, queue.queueId);
+				}
+			} else {
+				const queuesDistribute = chunk(queuesResumable);
+				for (let i = 0; i < queuesDistribute.length; i++) {
+					const slices = queuesDistribute[i];
+					if (slices.length) {
+						for (let ii = 0; ii < slices.length; ii++) {
+							if (i == workerIndex) {
+								const queue = slices[ii];
+								setScheduler(queue.body, queue.dueTime, queue.queueId);
+							}
+						}
+					}
+				}
+			}
+			setImmediate(() => {
+				if (process.send) {
+					process.send(1);
+				}
+			});
 		}
 	}
-	const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, 0, number, string]>(`
-		UPDATE queue
-		SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
-		WHERE id = ?4
-		RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
-	`);
-	if (queuesResumable.length == 1) {
-		const queue = queuesResumable[0];
-		stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
-		logInfo("Reschedule 1 task");
-	} else {
-		tasksDb.transaction(() => {
+	// 
+	if (clusterMode == "INACTIVE") {
+		const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
+			SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.*
+			FROM queue AS q JOIN config AS c ON q.id = c.id
+			WHERE q.state = ?1
+			LIMIT ?2
+			OFFSET ?3
+		`);
+		const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, 0, number, string]>(`
+			UPDATE queue
+			SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
+			WHERE id = ?4
+			RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
+		`);
+		for (let i = 0; i < Math.max(Math.ceil(count / batchSize), 1); i++) {
+			const offset = i * batchSize;
+			const queuesHistory = stmtQueuesHistory.all("RUNNING", Math.min(batchSize, count - offset), offset);
+			for (let ii = 0; ii < queuesHistory.length; ii++) {
+				const queueHistory = queuesHistory[ii];
+				const queue = resume(queueHistory, lastRecordAt);
+				queuesResumable.push(queue);
+			}
+		}
+		if (queuesResumable.length == 1) {
+			logInfo("Reschedule 1 task");
+			const queue = queuesResumable[0];
+			stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
+			setScheduler(queue.body, queue.dueTime, queue.queueId);
+		} else {
+			logInfo("Reschedule", queuesResumable.length, "tasks");
+			tasksDb.transaction(() => {
+				for (let i = 0; i < queuesResumable.length; i++) {
+					const queue = queuesResumable[i];
+					stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
+				}
+			})();
 			for (let i = 0; i < queuesResumable.length; i++) {
 				const queue = queuesResumable[i];
-				stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
+				setScheduler(queue.body, queue.dueTime, queue.queueId);
 			}
-		})();
-		logInfo("Reschedule", queuesResumable.length, "tasks");
-	}
-	for (let i = 0; i < queuesResumable.length; i++) {
-		const queue = queuesResumable[i];
-		setScheduler(queue.body, queue.dueTime, queue.queueId);
-	}
-	trackLastRecord();
-	backupJob.resume();
-}
-
-function trackLastRecord(): void {
-	const stmt = timeframeDb.query<void, [number, 1]>(`
-		UPDATE timeframe
-		SET lastRecordAt = ?1
-		WHERE id = ?2
-	`);
-	interval(1000).subscribe({
-		next() {
-			stmt.run(new Date().getTime(), 1);
 		}
-	});
+		setImmediate(() => {
+			backupJob.resume();
+			stmtQueuesHistory.finalize();
+			stmtQueueResumable.finalize();
+		});
+	}
+	raw.finalize();
 }
 
 function runMessageEmitter(): void {

@@ -49,6 +49,7 @@ type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 type HttpVersion = "0.9" | "1.0" | "1.1" | "2" | "2-prior-knowledge";
 type TlsVersion = "1.0" | "1.1" | "1.2" | "1.3";
 
+type ClusterMode = "ACTIVE" | "INACTIVE";
 type ConnectivityStatus = "ONLINE" | "OFFLINE";
 type SqliteBackupMethod = "LOCAL" | "GOOGLE_CLOUD_STORAGE";
 

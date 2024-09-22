@@ -1,5 +1,7 @@
 import { BunFile, env, file, hash, serve, SocketAddress } from "bun";
 
+import { exit } from "node:process";
+
 import cluster from "node:cluster";
 
 import { Hono } from "hono";
@@ -9,9 +11,11 @@ import { BlankSchema } from "hono/types";
 
 import { owner } from "./apis/owner";
 import { queue } from "./apis/queue";
+import { tasksDb } from "./db/db";
 import { exceptionFilter } from "./middlewares/exception-filter";
 import { throttle } from "./middlewares/throttle";
 import { isEmpty, safeInteger } from "./utils/common";
+import { MAX_INSTANCES } from "./utils/cluster";
 import { logInfo, logWarn } from "./utils/logger";
 
 type Socket = {
@@ -19,10 +23,6 @@ type Socket = {
 		ip: SocketAddress;
 	};
 };
-
-const MAX_INSTANCES = env.MAX_INSTANCES == "MAX"
-	? navigator.hardwareConcurrency
-	: safeInteger(env.MAX_INSTANCES);
 
 function main(): Hono<Var & Socket, BlankSchema, "/"> {
 
@@ -88,33 +88,38 @@ function startServer(reusePort?: boolean): void {
 		key: read(env.PATH_TLS_KEY),
 		ca: read(env.PATH_TLS_CA)
 	});
-	logInfo("Server listening on", server.url.toString(), JSON.stringify({ pid: process.pid }));
+	logInfo("Server listening on", server.url.toString(), JSON.stringify({
+		pid: process.pid
+	}));
 }
 
-function inRangeInstances(amount: number): boolean {
-	return (
-		Math.min(2, navigator.hardwareConcurrency) <= amount &&
-		amount <= Math.max(2, navigator.hardwareConcurrency)
-	);
-}
-
-if (env.CLUSTER_MODE == "1" && inRangeInstances(MAX_INSTANCES)) {
+if (env.CLUSTER_MODE == "1") {
 	if (cluster.isPrimary) {
 		logInfo("Starting cluster mode");
+		let workerCount = 0;
 		const send = (data: RecordString): void => {
 			for (const id in cluster.workers) {
-				cluster.workers[id]?.send(data);
+				if (cluster.workers[id]) {
+					cluster.workers[id].send(data);
+				}
 			}
 		};
 		for (let i = 0; i < MAX_INSTANCES; i++) {
 			const worker = cluster.fork({
 				SPAWN_INSTANCE: i.toString()
 			});
-			worker.on("message", send);
+			worker.on("message", message => {
+				if (typeof message === "number" && message == 1) {
+					workerCount += 1;
+					if (workerCount == MAX_INSTANCES) {
+						tasksDb.run("UPDATE timeframe SET data = ? WHERE id = 1", [null]);
+					}
+				} else {
+					send(message);
+				}
+			});
 		}
-		cluster.on("exit", (worker) => {
-			logWarn("Worker died", worker.process.pid);
-		});
+		cluster.on("exit", (worker) => logWarn("Worker died", worker.process.pid));
 	} else {
 		startServer(true);
 	}
