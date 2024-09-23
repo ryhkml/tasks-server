@@ -63,6 +63,7 @@ describe("TEST HTTP", () => {
 				retryExponential: false,
 				ignoreStatusCode: [],
 				timeout: 30000,
+				traceResponseData: true,
 				httpVersion: "1.1",
 				userAgent: "Tasks-Server/1.0 (compatible; Linux x86_64; +http://tasks-server)",
 				ipVersion: 4,

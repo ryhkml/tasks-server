@@ -125,6 +125,7 @@ CREATE TABLE config (
 	proxyHeaders			TEXT NULL,
 	proxyHttpVersion		TEXT NULL DEFAULT '1.1',
 	proxyInsecure			INTEGER NULL DEFAULT 0,
+	traceResponseData		INTEGER NULL DEFAULT 1,
 	FOREIGN KEY (id) REFERENCES queue(id)
 );
 

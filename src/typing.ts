@@ -174,6 +174,7 @@ type ConfigTable = {
 	keyType: string | null;
 	// 
 	userAgent: string;
+	traceResponseData: number;
 	location: number | null;
 	locationTrusted: string | null;
 	proto: string | null;

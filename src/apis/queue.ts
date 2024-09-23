@@ -669,6 +669,11 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 			rawBindings.push(1);
 		}
 	}
+	if (!body.config.traceResponseData) {
+		rawColumn += "traceResponseData, ";
+		rawValues += "?, ";
+		rawBindings.push(0);
+	}
 	// 
 	rawColumn = rawColumn.substring(0, rawColumn.length - 2) + ")";
 	rawValues = rawValues.substring(0, rawValues.length - 2) + ")";
@@ -726,9 +731,9 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 				return defer(() => http(body, additionalHeaders)).pipe(
 					map(res => {
 						if (res.data) {
-							res.data = enc(res.data, cipherKeyGen(queueId));
+							return { ...res, data: enc(res.data, cipherKeyGen(queueId)) };
 						}
-						return res;
+						return { ...res, data: null };
 					}),
 					tap({
 						next(res) {
@@ -982,7 +987,8 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 				? JSON.parse(dec(q.proxyAuthBasic, cipherKey))
 				: undefined,
 			proxyHttpVersion: (q.proxyHttpVersion as Config["proxyHttpVersion"]) ?? undefined,
-			proxyInsecure: !!q.proxyInsecure
+			proxyInsecure: !!q.proxyInsecure,
+			traceResponseData: !!q.traceResponseData
 		}
 	};
 	if (q.executeAt) {

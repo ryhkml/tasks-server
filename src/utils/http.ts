@@ -18,6 +18,11 @@ export function http(req: z.infer<typeof taskSchema>, additionalHeaders?: { [k: 
 	}
 	// IP. Use IP addresses only when resolving hostnames
 	options.push("-" + req.config.ipVersion.toString());
+	// No trace response data
+	if (!req.config.traceResponseData) {
+		options.push("-o");
+		options.push("/dev/null");
+	}
 	// Proto. By default, proto only enables http and https
 	if (req.config.proto) {
 		options.push("--proto");
@@ -375,12 +380,14 @@ export function http(req: z.infer<typeof taskSchema>, additionalHeaders?: { [k: 
 	options.push("&&SPLIT&&%{response_code}&&SPLIT&&%{size_download}");
 	options.push("--url");
 	options.push(url);
-	// @ts-expect-error
 	return defer(() => curl(options)).pipe(
 		map(text => {
 			const MAX_SIZE_DATA_RESPONSE = safeInteger(env.MAX_SIZE_DATA_RESPONSE) || 32768;
 			const [payload, code, sizeData] = text.split("&&SPLIT&&") as [string, string, string];
 			const status = safeInteger(code);
+			const data = !!payload.trim()
+				? Buffer.from(payload).toString("base64")
+				: null;
 			if (safeInteger(sizeData) > MAX_SIZE_DATA_RESPONSE) {
 				throw {
 					id: httpId,
@@ -393,7 +400,7 @@ export function http(req: z.infer<typeof taskSchema>, additionalHeaders?: { [k: 
 			if (status >= 400 && status <= 599) {
 				throw {
 					id: httpId,
-					data: Buffer.from(payload).toString("base64"),
+					data,
 					state: "ERROR",
 					status,
 					statusText: "Error 4xx-5xx"
@@ -401,12 +408,13 @@ export function http(req: z.infer<typeof taskSchema>, additionalHeaders?: { [k: 
 			}
 			return {
 				id: httpId,
-				data: Buffer.from(payload).toString("base64"),
+				data,
 				state: "SUCCESS",
 				status,
 				statusText: "Ok"
 			};
 		}),
+		// @ts-expect-error
 		timeout({
 			first: !!req.config.timeoutAt
 				? new Date(req.config.timeoutAt)

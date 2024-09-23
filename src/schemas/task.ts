@@ -156,6 +156,7 @@ export const taskSchema = z.strictObject({
 		])),
 		sessionId: z.optional(z.boolean()).default(true),
 		insecure: z.optional(z.boolean()).default(false),
+		traceResponseData: z.optional(z.boolean()).default(true),
 		// Cert and key config
 		ca: z.optional(z.array(z.string().base64()).nonempty().min(1).max(16)),
 		cert: z.optional(z.strictObject({
