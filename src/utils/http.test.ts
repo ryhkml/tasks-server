@@ -40,7 +40,7 @@ describe("TEST HTTP", () => {
 			expect(hasCAres).toBeTrue();
 		});
 		const hasLibGsasl = await mockLibGsasl();
-		it.if(hasLibGsasl)("should successfully support c-ares", () => {
+		it.if(hasLibGsasl)("should successfully support libgsasl", () => {
 			expect(hasLibGsasl).toBeTrue();
 		});
 	});
