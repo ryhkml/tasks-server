@@ -58,11 +58,7 @@ const backupJob = Cron(
 	},
 	async () => {
 		try {
-			if (env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE") {
-				await backupDb("GOOGLE_CLOUD_STORAGE");
-			} else {
-				await backupDb();
-			}
+			await backupDb(env.BACKUP_METHOD_SQLITE);
 			logInfo("Backup done");
 		} catch (err) {
 			logError(String(err));
