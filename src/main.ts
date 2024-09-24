@@ -84,9 +84,11 @@ function startServer(reusePort?: boolean): void {
 		reusePort,
 		port: safeInteger(env.PORT) || 9220,
 		maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768,
-		cert: read(env.PATH_TLS_CERT),
-		key: read(env.PATH_TLS_KEY),
-		ca: read(env.PATH_TLS_CA)
+		tls: {
+			cert: read(env.PATH_TLS_CERT),
+			key: read(env.PATH_TLS_KEY),
+			ca: read(env.PATH_TLS_CA)
+		}
 	});
 	logInfo("Server listening on", server.url.toString(), JSON.stringify({
 		pid: process.pid
