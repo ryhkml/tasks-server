@@ -1,6 +1,8 @@
 import { addMilliseconds, addSeconds, isAfter, isBefore } from "date-fns";
 import { z } from "zod";
 
+import { inRange } from "../utils/common";
+
 const recordStringSchema = z.record(
 	z.string().min(1).max(64).regex(/^[a-zA-Z0-9\$\_\.\-\[\]]{1,64}$/, {
 		message: "Invalid key format"
@@ -241,7 +243,13 @@ export const taskSchema = z.strictObject({
 		// Haproxy
 		haProxyClientIp: z.optional(z.string().ip()),
 		haProxyProtocol: z.optional(z.boolean())
-	}).default({})
+	}).default({}),
+	metadata: z.optional(
+		z.record(
+			z.string().min(1).max(64).regex(/^[a-zA-Z0-9\$\_\.\-\[\]]{1,64}$/),
+			z.string().min(1).max(512)
+		).refine(v => inRange(Object.keys(v).length, 1, 8))
+	)
 })
 // Validate date with custom error
 .superRefine(({ config }, ctx) => {

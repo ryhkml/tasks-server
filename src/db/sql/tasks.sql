@@ -36,6 +36,7 @@ CREATE TABLE queue (
 	estimateEndAt 			INTEGER NULL DEFAULT 0,
 	estimateExecutionAt 	INTEGER NOT NULL,
 	response				TEXT NULL,
+	metadata				TEXT NULL,
 	FOREIGN KEY (ownerId) REFERENCES owner(id)
 );
 

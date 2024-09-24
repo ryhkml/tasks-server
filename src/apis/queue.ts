@@ -30,13 +30,14 @@ type TaskRequest = z.infer<typeof taskSchema>;
 type HttpRequest = TaskRequest["httpRequest"];
 type Config = TaskRequest["config"];
 
-type Queue = Omit<QueueTable, "ownerId">;
-type QueueHistory = Pick<QueueTable, "ownerId" | "estimateEndAt" | "estimateExecutionAt"> & ConfigTable;
+type Queue = Omit<QueueTable, "ownerId" | "metadata"> & { metadata: RecordString | null };
+type QueueHistory = Pick<QueueTable, "ownerId" | "estimateEndAt" | "estimateExecutionAt" | "metadata"> & ConfigTable;
 type QueueResumable = {
 	queueId: string;
 	ownerId: string;
 	dueTime: number | Date;
 	estimateExecutionAt: number;
+	metadata: RecordString | null;
 	body: TaskRequest;
 };
 
@@ -87,7 +88,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 			const { limit, offset, order, sort } = c.req.valid("query")!;
 			if (sort == "asc") {
 				sql = `
-					SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt
+					SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
 					FROM queue
 					WHERE ownerId = ?1
 					ORDER BY ?2 ASC
@@ -96,7 +97,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				`;
 			} else {
 				sql = `
-					SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt
+					SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
 					FROM queue
 					WHERE ownerId = ?1
 					ORDER BY ?2 DESC
@@ -124,7 +125,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 		(c) => {
 			const { queueId } = c.req.valid("param");
 			const raw = tasksDb.query<Omit<QueueTable, "ownerId">, string>(`
-				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, response
+				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, response, metadata
 				FROM queue
 				WHERE id = ?
 				LIMIT 1
@@ -228,7 +229,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 		(c) => {
 			const { queueId } = c.req.valid("param");
 			const raw1 = tasksDb.query<QueueHistory, [string, TaskState]>(`
-				SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.*
+				SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
 				FROM queue AS q
 				JOIN config AS c ON q.id = c.id
 				WHERE q.id = ?1 AND q.state = ?2
@@ -678,15 +679,19 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	rawColumn = rawColumn.substring(0, rawColumn.length - 2) + ")";
 	rawValues = rawValues.substring(0, rawValues.length - 2) + ")";
 	// 
+	const metadata = !!body.metadata
+		? enc(JSON.stringify(body.metadata), cipherKey)
+		: null;
 	tasksDb.transaction(() => {
 		tasksDb.run(`
-			INSERT INTO queue (id, ownerId, createdAt, estimateExecutionAt)
-			VALUES (?1, ?2, ?3, ?4)
+			INSERT INTO queue (id, ownerId, createdAt, estimateExecutionAt, metadata)
+			VALUES (?1, ?2, ?3, ?4, ?5)
 		`, [
 			queueId,
 			ownerId,
 			todayAt,
-			estimateExecutionAt
+			estimateExecutionAt,
+			metadata
 		]);
 		tasksDb.run(rawColumn + " " + rawValues, rawBindings);
 	})();
@@ -700,7 +705,8 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		statusCode: 0,
 		estimateEndAt: 0,
 		estimateExecutionAt,
-		response: null
+		response: null,
+		metadata: body.metadata ?? null
 	};
 }
 
@@ -733,7 +739,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 						if (res.data) {
 							return { ...res, data: enc(res.data, cipherKeyGen(queueId)) };
 						}
-						return { ...res, data: null };
+						return res;
 					}),
 					tap({
 						next(res) {
@@ -989,7 +995,10 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			proxyHttpVersion: (q.proxyHttpVersion as Config["proxyHttpVersion"]) ?? undefined,
 			proxyInsecure: !!q.proxyInsecure,
 			traceResponseData: !!q.traceResponseData
-		}
+		},
+		metadata: !!q.metadata
+			? JSON.parse(dec(q.metadata, cipherKey))
+			: undefined
 	};
 	if (q.executeAt) {
 		const executeAt = parseDate(q.executeAt)!;
@@ -1036,6 +1045,7 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 		queueId: q.id,
 		ownerId: q.ownerId,
 		estimateExecutionAt,
+		metadata: body.metadata ?? null,
 		dueTime,
 		body
 	};
@@ -1084,7 +1094,7 @@ function reschedule(): void {
 	if (clusterMode == "ACTIVE") {
 		if (cluster.isPrimary) {
 			const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
-				SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.*
+				SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
 				FROM queue AS q JOIN config AS c ON q.id = c.id
 				WHERE q.state = ?1
 				LIMIT ?2
@@ -1166,7 +1176,7 @@ function reschedule(): void {
 	// 
 	if (clusterMode == "INACTIVE") {
 		const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
-			SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, c.*
+			SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
 			FROM queue AS q JOIN config AS c ON q.id = c.id
 			WHERE q.state = ?1
 			LIMIT ?2

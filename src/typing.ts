@@ -71,6 +71,7 @@ interface QueueTable {
 	estimateEndAt: number;
 	estimateExecutionAt: number;
 	response: string | null;
+	metadata: string | null;
 }
 
 type ConfigTable = {
