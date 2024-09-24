@@ -1,7 +1,5 @@
 import { BunFile, env, file, hash, serve, SocketAddress } from "bun";
 
-import { exit } from "node:process";
-
 import cluster from "node:cluster";
 
 import { Hono } from "hono";
