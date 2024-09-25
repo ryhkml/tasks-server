@@ -106,7 +106,15 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				`;
 			}
 			const raw = tasksDb.query<Omit<QueueTable, "ownerId" | "response">, [string, string, number, number]>(sql);
-			const queues = raw.all(ownerId, order, limit, offset);
+			const queues = raw.all(ownerId, order, limit, offset).map(q => {
+				if (q.metadata) {
+					return {
+						...q,
+						metadata: JSON.parse(dec(q.metadata, cipherKeyGen(q.id)))
+					};
+				}
+				return q;
+			});
 			return c.json(queues);
 		}
 	);
@@ -135,7 +143,10 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				return c.json({}, 404);
 			}
 			if (queue.response) {
-				queue.response = dec(queue.response, cipherKeyGen(queueId))
+				queue.response = dec(queue.response, cipherKeyGen(queueId));
+			}
+			if (queue.metadata) {
+				queue.metadata = JSON.parse(dec(queue.metadata, cipherKeyGen(queueId)));
 			}
 			return c.json(queue);
 		}
@@ -240,14 +251,17 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 				throw new HTTPException(422);
 			}
 			const { body, dueTime, estimateExecutionAt } = resume(queue, queue.estimateEndAt);
-			const raw2 = tasksDb.query<Queue, [TaskState, 0, number, string]>(`
+			const raw2 = tasksDb.query<QueueTable, [TaskState, 0, number, string]>(`
 				UPDATE queue
 				SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
 				WHERE id = ?4
-				RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
+				RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response, metadata
 			`);
 			const currentQueue = raw2.get("RUNNING", 0, estimateExecutionAt, queueId)!;
 			setScheduler(body, dueTime, queueId);
+			if (currentQueue.metadata) {
+				currentQueue.metadata = JSON.parse(dec(currentQueue.metadata, cipherKeyGen(queueId)));
+			}
 			return c.json(currentQueue);
 		}
 	);
@@ -1100,11 +1114,10 @@ function reschedule(): void {
 				LIMIT ?2
 				OFFSET ?3
 			`);
-			const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, 0, number, string]>(`
+			const stmtQueueResumable = tasksDb.prepare<void, [TaskState, 0, number, string]>(`
 				UPDATE queue
 				SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
 				WHERE id = ?4
-				RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
 			`);
 			for (let i = 0; i < Math.max(Math.ceil(count / batchSize), 1); i++) {
 				const offset = i * batchSize;
@@ -1182,11 +1195,10 @@ function reschedule(): void {
 			LIMIT ?2
 			OFFSET ?3
 		`);
-		const stmtQueueResumable = tasksDb.prepare<Queue, [TaskState, 0, number, string]>(`
+		const stmtQueueResumable = tasksDb.prepare<void, [TaskState, 0, number, string]>(`
 			UPDATE queue
 			SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
 			WHERE id = ?4
-			RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response
 		`);
 		for (let i = 0; i < Math.max(Math.ceil(count / batchSize), 1); i++) {
 			const offset = i * batchSize;

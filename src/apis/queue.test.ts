@@ -15,7 +15,7 @@ import { queuesQuerySchema } from "../schemas/queue";
 import { logInfo } from "../utils/logger";
 
 type TaskRequest = z.infer<typeof taskSchema>;
-type Queue = Omit<QueueTable, "ownerId">;
+type Queue = Omit<QueueTable, "ownerId" | "metadata"> & { metadata: RecordString | null };
 
 describe("TEST QUEUE", () => {
 
@@ -454,6 +454,39 @@ describe("TEST QUEUE", () => {
 					})
 				});
 				expect(res.status).toBe(201);
+			});
+		});
+
+		describe("", () => {
+			it("should successfully register with additional metadata", async () => {
+				// @ts-expect-error
+				const body: TaskRequest = {
+					httpRequest: {
+						url: targetUrl,
+						method: "GET"
+					},
+					metadata: {
+						username: "test",
+						tag: "checkout-notification"
+					}
+				};
+				const res = await api.request("/v1/queues/register", {
+					method: "POST",
+					cache: "no-cache",
+					body: JSON.stringify(body),
+					headers: new Headers({
+						"Authorization": "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				expect(res.status).toBe(201);
+				const queue = await res.json() as Queue;
+				expect(queue.metadata).toStrictEqual({
+					username: "test",
+					tag: "checkout-notification"
+				});
 			});
 		});
 
