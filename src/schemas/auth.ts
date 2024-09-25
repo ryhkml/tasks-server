@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const keySchema = z.string().length(42).regex(/^[a-zA-Z0-9_-]{42}$/);
+const keySchema = z.string().length(64).regex(/^[a-zA-Z0-9]{64}$/);
 
 export const ownerHeadersSchema = z.object({
 	"authorization": z.string().refine(v => {

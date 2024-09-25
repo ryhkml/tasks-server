@@ -5,7 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { BlankSchema } from "hono/types";
 
 import { zValidator } from "@hono/zod-validator";
-import { nanoid  } from "nanoid";
+import { customAlphabet  } from "nanoid";
 import { ulid } from "ulid";
 
 import { tasksAuth } from "../middlewares/auth";
@@ -42,17 +42,22 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 			const { name } = c.req.valid("json");
 			const todayAt = c.get("todayAt");
 			const id = ulid(todayAt);
-			const key = nanoid(42);
+			const alphabet = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 64);
+			const key = alphabet();
 			const secretKey = await password.hash(key);
-			tasksDb.run(`
-				INSERT INTO owner (id, key, name, createdAt)
-				VALUES (?1, ?2, ?3, ?4)
-			`, [
-				id,
-				secretKey,
-				name,
-				todayAt
-			]);
+			try {
+				tasksDb.run(`
+					INSERT INTO owner (id, key, name, createdAt)
+					VALUES (?1, ?2, ?3, ?4)
+				`, [
+					id,
+					secretKey,
+					name,
+					todayAt
+				]);
+			} catch (err) {
+				throw new HTTPException(422);
+			}
 			return c.json({ id, key }, 201);
 		}
 	);

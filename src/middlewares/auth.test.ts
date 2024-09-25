@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "bun:test";
 
 import { Hono } from "hono";
 
-import { nanoid } from "nanoid";
+import { customAlphabet } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
 
@@ -38,7 +38,8 @@ describe("TEST AUTH", () => {
 
 	beforeAll(async () => {
 		ownerId = ulid(todayAt);
-		key = nanoid(42);
+		const alphabet = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 64);
+		key = alphabet();
 		secretKey = await password.hash(key);
 		// Register owner
 		tasksDb.run("INSERT INTO owner (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [

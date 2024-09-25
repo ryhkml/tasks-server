@@ -3,7 +3,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, setSystemTime }
 
 import { Hono } from "hono";
 
-import { nanoid } from "nanoid";
+import { customAlphabet } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
 
@@ -12,12 +12,14 @@ import { tasksDb } from "../db/db";
 import { exceptionFilter } from "../middlewares/exception-filter";
 import { taskSchema } from "../schemas/task";
 import { queuesQuerySchema } from "../schemas/queue";
-import { logInfo } from "../utils/logger";
+import { logWarn } from "../utils/logger";
 
 type TaskRequest = z.infer<typeof taskSchema>;
 type Queue = Omit<QueueTable, "ownerId" | "metadata"> & { metadata: RecordString | null };
 
 describe("TEST QUEUE", () => {
+
+	logWarn("If an error occurs during this test, ensure your internet connection is stable");
 
 	let ownerId = "";
 	let key = "";
@@ -42,7 +44,8 @@ describe("TEST QUEUE", () => {
 
 	beforeAll(async () => {
 		ownerId = ulid(todayAt);
-		key = nanoid(42);
+		const alphabet = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 64);
+		key = alphabet();
 		const secretKey = await password.hash(key);
 		// Register owner
 		tasksDb.run("INSERT INTO owner (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [
@@ -51,7 +54,6 @@ describe("TEST QUEUE", () => {
 			ownerName,
 			todayAt
 		]);
-		logInfo("Fetch target URL to reduce cold start, please wait!");
 		for (let i = 1; i <= 3; i++) {		
 			await fetch(targetUrl, {
 				method: "GET",
