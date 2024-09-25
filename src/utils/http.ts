@@ -1,14 +1,16 @@
-import { env, hash, readableStreamToText, spawn, spawnSync, write } from "bun";
+import { env, hash, readableStreamToText, spawn, write } from "bun";
 
 import { randomBytes } from "node:crypto";
 
-import { Observable, TimeoutError, catchError, defer, map, of, throwError, timeout } from "rxjs";
+import { Observable, TimeoutError, catchError, defer, map, throwError, timeout } from "rxjs";
 import { z } from "zod";
 
-import { isPlainObject, safeInteger } from "./common";
+import { inRange, isPlainObject, safeInteger } from "./common";
 import { taskSchema } from "../schemas/task";
 
-export function http(req: z.infer<typeof taskSchema>, additionalHeaders?: { [k: string]: string }): Observable<CurlHttpResponse> {
+type TaskRequest = z.infer<typeof taskSchema>;
+
+export function http(req: TaskRequest, additionalHeaders?: RecordString): Observable<CurlHttpResponse> {
 	const httpId = hash(req.httpRequest.url).toString() + randomBytes(16).toString("hex");
 	const options = ["-s", "-N"];
 	// Method
@@ -397,7 +399,7 @@ export function http(req: z.infer<typeof taskSchema>, additionalHeaders?: { [k: 
 					statusText: "Unprocessable data, the response payload too large"
 				};
 			}
-			if (status >= 400 && status <= 599) {
+			if (inRange(status, 400, 599)) {
 				throw {
 					id: httpId,
 					data,
