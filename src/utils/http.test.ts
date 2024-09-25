@@ -1,4 +1,4 @@
-import { $, which } from "bun";
+import { $, env, which } from "bun";
 import { describe, expect, it, mock } from "bun:test";
 
 import { lastValueFrom } from "rxjs";
@@ -12,10 +12,7 @@ type TaskRequest = z.infer<typeof taskSchema>;
 
 describe("TEST HTTP", () => {
 
-	logWarn("If any test is skipped, curl may not support the feature");
-	logWarn("Ensure that you use the latest version of curl, or build curl with support for c-ares and libgsasl, if necessary");
-
-	const targetUrl = "https://us-central1-adroit-cortex-391921.cloudfunctions.net/on-premise-tasks-wht/cb";
+	logWarn("Ensure that you use the latest version of curl, or build curl with support for c-ares and libgsasl");
 
 	const safeParse = (data: TaskRequest) => {
 		return taskSchema.safeParse(data);
@@ -50,7 +47,7 @@ describe("TEST HTTP", () => {
 			// @ts-expect-error
 			const { data } = safeParse({
 				httpRequest: {
-					url: targetUrl,
+					url: env.DUMMY_TARGET_URL,
 					method: "GET"
 				}
 			});

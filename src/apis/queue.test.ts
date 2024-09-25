@@ -1,4 +1,4 @@
-import { fetch, password, sleep } from "bun";
+import { env, fetch, password, sleep } from "bun";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, setSystemTime } from "bun:test";
 
 import { Hono } from "hono";
@@ -25,7 +25,6 @@ describe("TEST QUEUE", () => {
 	let key = "";
 
 	const ownerName = "test-queue";
-	const targetUrl = "https://us-central1-adroit-cortex-391921.cloudfunctions.net/on-premise-tasks-wht/cb";
 	const todayAt = new Date().getTime();
 
 	const stmtQueue = tasksDb.prepare<QueueTable, string>("SELECT * FROM queue WHERE id = ?");
@@ -55,7 +54,7 @@ describe("TEST QUEUE", () => {
 			todayAt
 		]);
 		for (let i = 1; i <= 3; i++) {		
-			await fetch(targetUrl, {
+			await fetch(env.DUMMY_TARGET_URL, {
 				method: "GET",
 				cache: "no-cache",
 				headers: new Headers({
@@ -118,7 +117,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					}
 				};
@@ -194,7 +193,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					}
 				};
@@ -229,7 +228,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl + "/error",
+						url: env.DUMMY_TARGET_URL + "/error",
 						method: "GET"
 					}
 				};
@@ -264,7 +263,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET",
 						data: "Ignore data"
 					}
@@ -293,7 +292,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "POST",
 						data: "Test string data"
 					}
@@ -318,7 +317,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "POST",
 						data: [{
 							name: "label",
@@ -346,7 +345,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "POST",
 						data: {
 							name: "Test json data",
@@ -382,7 +381,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "POST",
 						cookie: [{
 							name: "name",
@@ -410,7 +409,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET",
 						query: {
 							q: "Test query"
@@ -437,7 +436,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET",
 						headers: {
 							"X-Custom-Id": "Test header"
@@ -464,7 +463,7 @@ describe("TEST QUEUE", () => {
 				// @ts-expect-error
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					metadata: {
@@ -496,7 +495,7 @@ describe("TEST QUEUE", () => {
 			it("should successfully register and ignore error status code", async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl + "/error",
+						url: env.DUMMY_TARGET_URL + "/error",
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -528,7 +527,7 @@ describe("TEST QUEUE", () => {
 			it("should successfully register and retry 1 time", async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl + "/error",
+						url: env.DUMMY_TARGET_URL + "/error",
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -565,7 +564,7 @@ describe("TEST QUEUE", () => {
 			it("should successfully register and retry with specific date", async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl + "/error",
+						url: env.DUMMY_TARGET_URL + "/error",
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -601,7 +600,7 @@ describe("TEST QUEUE", () => {
 			it("should unsuccessfully register due to execution date is a previous date", async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -628,7 +627,7 @@ describe("TEST QUEUE", () => {
 			it("should unsuccessfully register due to retry date is a previous execution date", async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -655,7 +654,7 @@ describe("TEST QUEUE", () => {
 		it("should unsuccessfully register due to timeout date is a previous execution date", async () => {
 			const body: TaskRequest = {
 				httpRequest: {
-					url: targetUrl,
+					url: env.DUMMY_TARGET_URL,
 					method: "GET"
 				},
 				// @ts-expect-error
@@ -685,7 +684,7 @@ describe("TEST QUEUE", () => {
 			it("should unsuccessfully register due to number of tasks in queue is greater than the limit", async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -719,7 +718,7 @@ describe("TEST QUEUE", () => {
 			beforeEach(async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -813,7 +812,7 @@ describe("TEST QUEUE", () => {
 			beforeEach(async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -879,7 +878,7 @@ describe("TEST QUEUE", () => {
 			beforeEach(async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -987,7 +986,7 @@ describe("TEST QUEUE", () => {
 			beforeEach(async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -1032,7 +1031,7 @@ describe("TEST QUEUE", () => {
 			beforeEach(async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -1129,7 +1128,7 @@ describe("TEST QUEUE", () => {
 			beforeEach(async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
@@ -1174,7 +1173,7 @@ describe("TEST QUEUE", () => {
 			beforeEach(async () => {
 				const body: TaskRequest = {
 					httpRequest: {
-						url: targetUrl,
+						url: env.DUMMY_TARGET_URL,
 						method: "GET"
 					},
 					// @ts-expect-error
