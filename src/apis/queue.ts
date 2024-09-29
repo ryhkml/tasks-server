@@ -1120,7 +1120,7 @@ function reschedule(): void {
 		raw.finalize();
 		return;
 	}
-	let queuesResumable = [] as QueueResumable[];
+	let queuesResumable: QueueResumable[] | null = [];
 	const batchSize = 500;
 	// 
 	if (clusterMode == "ACTIVE") {
@@ -1156,8 +1156,8 @@ function reschedule(): void {
 			} else {
 				logInfo("Reschedule", queuesResumable.length, "tasks");
 				tasksDb.transaction(() => {
-					for (let i = 0; i < queuesResumable.length; i++) {
-						const queue = queuesResumable[i];
+					for (let i = 0; i < queuesResumable!.length; i++) {
+						const queue = queuesResumable![i];
 						stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
 					}
 				})();
@@ -1166,6 +1166,7 @@ function reschedule(): void {
 				backupJob.resume();
 				stmtQueuesHistory.finalize();
 				stmtQueueResumable.finalize();
+				queuesResumable = null;
 			});
 		}
 		if (cluster.isWorker) {
@@ -1176,7 +1177,7 @@ function reschedule(): void {
 				LIMIT 1
 			`);
 			const { data } = raw.get()!;
-			queuesResumable = JSON.parse(Buffer.from(data, "base64").toString());
+			queuesResumable = JSON.parse(Buffer.from(data, "base64").toString()) as QueueResumable[];
 			const workerIndex = safeInteger(env.SPAWN_INSTANCE);
 			if (queuesResumable.length == 1) {
 				if (workerIndex == 0) {
@@ -1201,6 +1202,7 @@ function reschedule(): void {
 				if (process.send) {
 					process.send(1);
 				}
+				queuesResumable = null;
 			});
 		}
 	}
@@ -1235,13 +1237,13 @@ function reschedule(): void {
 		} else {
 			logInfo("Reschedule", queuesResumable.length, "tasks");
 			tasksDb.transaction(() => {
-				for (let i = 0; i < queuesResumable.length; i++) {
-					const queue = queuesResumable[i];
+				for (let i = 0; i < queuesResumable!.length; i++) {
+					const queue = queuesResumable![i];
 					stmtQueueResumable.run("RUNNING", 0, queue.estimateExecutionAt, queue.queueId);
 				}
 			})();
 			for (let i = 0; i < queuesResumable.length; i++) {
-				const queue = queuesResumable[i];
+				const queue = queuesResumable![i];
 				setScheduler(queue.body, queue.dueTime, queue.queueId);
 			}
 		}
@@ -1249,6 +1251,7 @@ function reschedule(): void {
 			backupJob.resume();
 			stmtQueuesHistory.finalize();
 			stmtQueueResumable.finalize();
+			queuesResumable = null;
 		});
 	}
 	raw.finalize();
