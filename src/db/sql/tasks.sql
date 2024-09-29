@@ -53,7 +53,7 @@ END;
 
 CREATE TRIGGER decrementTasksInQueue
 BEFORE UPDATE OF state ON queue
-WHEN NEW.state IN ('SUCCESS', 'ERROR') AND OLD.state = 'RUNNING'
+WHEN NEW.state IN ('SUCCESS', 'REVOKED', 'ERROR') AND OLD.state = 'RUNNING'
 BEGIN
 	UPDATE owner SET tasksInQueue = tasksInQueue - 1 WHERE id = NEW.ownerId;
 	UPDATE config SET retrying = 0, estimateNextRetryAt = 0 WHERE id = NEW.id AND retrying = 1;
