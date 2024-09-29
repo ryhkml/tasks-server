@@ -8,7 +8,7 @@ import { BlankSchema } from "hono/types";
 
 import { zValidator } from "@hono/zod-validator";
 import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
-import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, map, of, retry, Subscription, take, tap, throwError, timer } from "rxjs";
+import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, map, of, retry, take, tap, throwError, timer } from "rxjs";
 import { z } from "zod";
 
 import cluster from "node:cluster";
@@ -25,6 +25,7 @@ import { dec, enc } from "../utils/crypto";
 import { http } from "../utils/http";
 import { logError, logInfo, logWarn } from "../utils/logger";
 import { clusterMode, MAX_INSTANCES } from "../utils/cluster";
+import { subscriptionManager } from "../utils/subscription";
 
 type TaskRequest = z.infer<typeof taskSchema>;
 type HttpRequest = TaskRequest["httpRequest"];
@@ -40,8 +41,6 @@ type QueueResumable = {
 	metadata: RecordString | null;
 	body: TaskRequest;
 };
-
-let subscriptions = [] as { id: string, resource: Subscription }[];
 
 const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>("SELECT 'Ok' AS status FROM owner WHERE id = ? AND tasksInQueue < tasksInQueueLimit");
 const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>("UPDATE queue SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4 WHERE id = ?5");
@@ -220,7 +219,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 					queueId
 				});
 			} else {
-				cleanupScheduler(queueId);
+				subscriptionManager.unsubscribe(queueId);
 			}
 			return c.json(status);
 		}
@@ -299,7 +298,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 					queueId
 				});
 			} else {
-				cleanupScheduler(queueId);
+				subscriptionManager.unsubscribe(queueId);
 			}
 			return c.json(queue);
 		}
@@ -333,7 +332,7 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 					queueId
 				});
 			} else {
-				cleanupScheduler(queueId);
+				subscriptionManager.unsubscribe(queueId);
 			}
 			return c.json(deleted);
 		}
@@ -729,9 +728,9 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 	dueTime = typeof dueTime === "number"
 		? addMilliseconds(dueTime, -1).getTime()
 		: addMilliseconds(dueTime, -1);
-	subscriptions.push({
-		id: queueId,
-		resource: timer(dueTime).pipe(
+	subscriptionManager.add(
+		queueId,
+		timer(dueTime).pipe(
 			expand((_, i) => defer(() => connectivity()).pipe(
 				tap(connectivity => {
 					if (env.LOG == "1") {
@@ -825,7 +824,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 					recursive: true,
 					force: true
 				});
-				subscriptions = subscriptions.filter(s => !s.resource.closed);
+				subscriptionManager.unsubscribe(queueId);
 			})
 		)
 		.subscribe({
@@ -848,19 +847,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 				}
 			}
 		})
-	});
-}
-
-function cleanupScheduler(queueId: string): void {
-	const subscription = subscriptions.find(s => s.id == queueId);
-	if (subscription) {
-		if (subscription.resource.closed) {
-			subscriptions = subscriptions.filter(s => !s.resource.closed);
-		} else {
-			subscription.resource.unsubscribe();
-			subscriptions = subscriptions.filter(s => !s.resource.closed);
-		}
-	}
+	);
 }
 
 function resume(q: QueueHistory, endAt: number): QueueResumable {
@@ -1239,7 +1226,7 @@ function reschedule(): void {
 function runMessageEmitter(): void {
 	process.on("message", (message: RecordString) => {
 		if (message.emit == "REVOKE") {
-			cleanupScheduler(message.queueId);
+			subscriptionManager.unsubscribe(message.queueId);
 		}
 	});
 }

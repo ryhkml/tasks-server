@@ -8,6 +8,7 @@ import cluster from "node:cluster";
 
 import { clusterMode } from "../utils/cluster";
 import { logError } from "../utils/logger";
+import { subscriptionManager } from "../utils/subscription";
 
 if (!existsSync(env.PATH_SQLITE)) {
 	logError("Tasks DB not found");
@@ -29,6 +30,7 @@ export const throttleDb = new Database(env.PATH_SQLITE.replace(".db", "-throttle
 
 function closeDb(): void {
 	try {
+		subscriptionManager.unsubscribeAll();
 		tasksDb.run("UPDATE timeframe SET lastRecordAt = ?1, data = ?2 WHERE id = 1", [
 			new Date().getTime(),
 			null
