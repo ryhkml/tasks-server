@@ -10,8 +10,6 @@ import { zValidator } from "@hono/zod-validator";
 import { tasksDb } from "../db/db";
 import { ownerHeadersSchema } from "../schemas/auth";
 
-const stmtKey = tasksDb.query<{ key: string }, string>("SELECT key FROM owner WHERE id = ? LIMIT 1");
-
 export function tasksAuth(): MiddlewareHandler {
 	return every(
 		zValidator("header", ownerHeadersSchema, (result) => {
@@ -27,6 +25,12 @@ export function tasksAuth(): MiddlewareHandler {
 		bearerAuth({
 			async verifyToken(token, c: Context<Var>) {
 				const id = c.get("ownerId");
+				const stmtKey = tasksDb.query<{ key: string }, string>(`
+					SELECT key
+					FROM owner
+					WHERE id = ?
+					LIMIT 1
+				`);
 				const owner = stmtKey.get(id);
 				if (owner == null) {
 					throw new HTTPException(403);

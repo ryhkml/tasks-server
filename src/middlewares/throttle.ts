@@ -9,15 +9,19 @@ import { throttleDb } from "../db/db";
 import { safeInteger } from "../utils/common";
 import { logWarn } from "../utils/logger";
 
-const stmtControl = throttleDb.query<Omit<ControlTable, "id">, string>("SELECT requestCount, lastRequestAt FROM control WHERE id = ? LIMIT 1");
-const stmtRequestCount = throttleDb.query<Pick<ControlTable, "requestCount">, string>("UPDATE control SET requestCount = requestCount + 1 WHERE id = ? RETURNING requestCount");
-
 export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 	const MAX_REQUEST = safeInteger(env.MAX_THROTTLE_REQUEST) || 10;
 	const TIME_WINDOW = safeInteger(env.MAX_THROTTLE_TIME_WINDOW) || 60000;
 
 	const id = c.get("clientId");
 	const todayAt = c.get("todayAt");
+
+	const stmtControl = throttleDb.query<Omit<ControlTable, "id">, string>(`
+		SELECT requestCount, lastRequestAt
+		FROM control
+		WHERE id = ?
+		LIMIT 1
+	`);
 	const control = stmtControl.get(id);
 
 	c.header("RateLimit-Policy", MAX_REQUEST.toString() + ";w=" + millisecondsToSeconds(TIME_WINDOW).toString());
@@ -35,6 +39,12 @@ export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 				}));
 				throw new HTTPException(429);
 			}
+			const stmtRequestCount = throttleDb.query<Pick<ControlTable, "requestCount">, string>(`
+				UPDATE control
+				SET requestCount = requestCount + 1
+				WHERE id = ?
+				RETURNING requestCount
+			`);
 			const { requestCount } = stmtRequestCount.get(id)!;
 			c.header("RateLimit-Remaining", (MAX_REQUEST - requestCount).toString());
 		} else {

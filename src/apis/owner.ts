@@ -12,8 +12,6 @@ import { tasksAuth } from "../middlewares/auth";
 import { tasksDb } from "../db/db";
 import { ownerNameSchema } from "../schemas/owner";
 
-const stmtIsRegistered = tasksDb.query<{ isRegistered: 0 | 1 }, string>("SELECT EXISTS (SELECT 1 FROM owner WHERE name = ?) AS isRegistered");
-
 export function owner(): Hono<Var, BlankSchema, "/"> {
 
 	const owner = new Hono<Var>();
@@ -29,7 +27,11 @@ export function owner(): Hono<Var, BlankSchema, "/"> {
 			}
 		}),
 		async (c, next) => {
-			const { name } = c.req.valid("json")
+			const { name } = c.req.valid("json");
+			const stmtIsRegistered = tasksDb.query<{ isRegistered: 0 | 1 }, string>(`
+				SELECT EXISTS
+				(SELECT 1 FROM owner WHERE name = ?) AS isRegistered
+			`);
 			const owner = stmtIsRegistered.get(name);
 			if (owner?.isRegistered) {
 				throw new HTTPException(409, {

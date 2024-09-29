@@ -42,12 +42,6 @@ type QueueResumable = {
 	body: TaskRequest;
 };
 
-const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>("SELECT 'Ok' AS status FROM owner WHERE id = ? AND tasksInQueue < tasksInQueueLimit");
-const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>("UPDATE queue SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4 WHERE id = ?5");
-const stmtRetryCount = tasksDb.query<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>("UPDATE config SET retrying = ?1 WHERE id = ?2 RETURNING retryCount, retryLimit");
-const stmtQueueError = tasksDb.query<void, [number, string, string]>("UPDATE queue SET statusCode = ?1, response = ?2 WHERE id = ?3");
-const stmtRetryCountError = tasksDb.query<void, [string, number, string]>("UPDATE config SET headers = ?1, estimateNextRetryAt = ?2 WHERE id = ?3");
-
 const backupJob = Cron(
 	env.BACKUP_CRON_PATTERN_SQLITE || "0 0 * * *",
 	{
@@ -163,6 +157,11 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 			}
 		}),
 		async (c, next) => {
+			const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>(`
+				SELECT 'Ok' AS status
+				FROM owner
+				WHERE id = ? AND tasksInQueue < tasksInQueueLimit
+			`);
 			const status = stmtTasksInQueue.get(c.get("ownerId"));
 			if (status == null) {
 				throw new HTTPException(422, {
@@ -288,6 +287,17 @@ export function queue(): Hono<Var, BlankSchema, "/"> {
 			if (queue == null) {
 				throw new HTTPException(422);
 			}
+			const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>(`
+				UPDATE queue
+				SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4
+				WHERE id = ?5
+			`);
+			const stmtRetryCount = tasksDb.query<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>(`
+				UPDATE config
+				SET retrying = ?1
+				WHERE id = ?2
+				RETURNING retryCount, retryLimit
+			`);
 			tasksDb.transaction(() => {
 				stmtQueue.run("REVOKED", 0, null, c.get("todayAt"), queueId);
 				stmtRetryCount.run(0, queueId);
@@ -725,6 +735,11 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 
 function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string): void {
 	let httpId = "";
+	const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>(`
+		UPDATE queue
+		SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4
+		WHERE id = ?5
+	`);
 	dueTime = typeof dueTime === "number"
 		? addMilliseconds(dueTime, -1).getTime()
 		: addMilliseconds(dueTime, -1);
@@ -778,6 +793,12 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 							let retryDueTime = 0 as number | Date;
 							let estimateNextRetryAt = 0;
 							const retryingAt = new Date().getTime();
+							const stmtRetryCount = tasksDb.query<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>(`
+								UPDATE config
+								SET retrying = ?1
+								WHERE id = ?2
+								RETURNING retryCount, retryLimit
+							`);
 							const { retryCount, retryLimit } = stmtRetryCount.get(1, queueId)!;
 							if (body.config.retryAt) {
 								retryDueTime = new Date(body.config.retryAt);
@@ -795,6 +816,16 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 								"X-Tasks-Retry-Limit": retryLimit.toString(),
 								"X-Tasks-Estimate-Next-Retry-At": estimateNextRetryAt.toString()
 							};
+							const stmtQueueError = tasksDb.query<void, [number, string, string]>(`
+								UPDATE queue
+								SET statusCode = ?1, response = ?2
+								WHERE id = ?3
+							`);
+							const stmtRetryCountError = tasksDb.query<void, [string, number, string]>(`
+								UPDATE config
+								SET headers = ?1, estimateNextRetryAt = ?2
+								WHERE id = ?3
+							`);
 							tasksDb.transaction(() => {
 								stmtQueueError.run(
 									error.status,
