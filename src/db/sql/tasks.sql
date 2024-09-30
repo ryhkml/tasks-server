@@ -62,6 +62,7 @@ END;
 CREATE TRIGGER deleteUnusedConfig
 AFTER DELETE ON queue
 BEGIN
+	UPDATE owner SET tasksInQueue = tasksInQueue - 1 WHERE id = OLD.ownerId AND OLD.state IN ('RUNNING', 'PAUSED');
 	DELETE FROM config WHERE id = OLD.id;
 END;
 
