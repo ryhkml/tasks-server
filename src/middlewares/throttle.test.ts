@@ -1,10 +1,10 @@
-import { hash, sleep, SocketAddress } from "bun";
+import { env, hash, sleep, SocketAddress } from "bun";
+import { Database } from "bun:sqlite";
 import { afterEach, beforeEach, describe, expect, it, setSystemTime } from "bun:test";
 
 import { Hono } from "hono";
 
 import { throttle } from "./throttle";
-import { throttleDb } from "../db/db";
 import { exceptionFilter } from "./exception-filter";
 
 type Socket = {
@@ -14,10 +14,15 @@ type Socket = {
 };
 
 describe("TEST THROTTLE", () => {
-	
+
+    const db = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
+        create: false,
+        strict: true
+    });
+
 	const id = hash("127.0.0.1").toString();
 
-	const stmtRequestCount = throttleDb.prepare<Pick<ControlTable, "requestCount">, string>("SELECT requestCount FROM control WHERE id = ?");
+	const stmtRequestCount = db.prepare<Pick<ControlTable, "requestCount">, string>("SELECT requestCount FROM control WHERE id = ?");
 
 	const api = new Hono<Var & Socket>();
 
@@ -45,7 +50,7 @@ describe("TEST THROTTLE", () => {
 			expect(requestCount).toBe(1);
 		});
 		afterEach(async () => {
-			throttleDb.run("DELETE FROM control WHERE id = ?", [id]);
+			db.run("DELETE FROM control WHERE id = ?", [id]);
 			await sleep(1);
 		});
 	});
@@ -71,7 +76,7 @@ describe("TEST THROTTLE", () => {
 			expect(requestCount).toBe(10);
 		});
 		afterEach(async () => {
-			throttleDb.run("DELETE FROM control WHERE id = ?", [id]);
+			db.run("DELETE FROM control WHERE id = ?", [id]);
 			await sleep(1);
 		});
 	});

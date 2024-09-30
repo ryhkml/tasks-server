@@ -1,7 +1,8 @@
 import { env, file } from "bun";
+import { Database } from "bun:sqlite";
 import { describe, expect, it } from "bun:test";
 
-import { tasksDb, throttleDb } from "./db";
+import { tasksDb } from "./db";
 
 describe("TEST DATABASE", () => {
 	describe("env variables", () => {
@@ -32,7 +33,11 @@ describe("TEST DATABASE", () => {
 		});
 
 		it("should successfully query to the throttle database", () => {
-			const raw = throttleDb.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+    		const db = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
+                create: false,
+                strict: true
+            });
+			const raw = db.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
 			const control = raw.get("table", "control");
 			expect(control).not.toBeNull();
 			expect(control?.name).toBe("control");

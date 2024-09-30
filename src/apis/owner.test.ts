@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 
 import { Hono } from "hono";
 
-import { owner } from "./owner";
 import { tasksDb } from "../db/db";
 import { exceptionFilter } from "../middlewares/exception-filter";
+
+import owner from "./owner";
 
 describe("TEST OWNER", () => {
 
@@ -21,7 +22,7 @@ describe("TEST OWNER", () => {
 
 	api.onError(exceptionFilter);
 
-	api.basePath("/v1").route("/owners", owner());
+	api.basePath("/v1").route("/owners", owner);
 
 	describe("POST /v1/owners/register", () => {
 		it("should unsuccessfully register invalid owner name", async () => {

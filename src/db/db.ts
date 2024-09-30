@@ -1,4 +1,4 @@
-import { env, sleep } from "bun";
+import { env } from "bun";
 import { Database } from "bun:sqlite";
 
 import { existsSync } from "node:fs";
@@ -20,10 +20,6 @@ if (!existsSync(env.PATH_SQLITE.replace(".db", "-throttle.db"))) {
 }
 
 export const tasksDb = new Database(env.PATH_SQLITE, {
-	create: false,
-	strict: true
-});
-export const throttleDb = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
 	create: false,
 	strict: true
 });

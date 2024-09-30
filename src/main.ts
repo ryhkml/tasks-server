@@ -5,10 +5,7 @@ import cluster from "node:cluster";
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 import { secureHeaders } from "hono/secure-headers";
-import { BlankSchema } from "hono/types";
 
-import { owner } from "./apis/owner";
-import { queue } from "./apis/queue";
 import { tasksDb } from "./db/db";
 import { exceptionFilter } from "./middlewares/exception-filter";
 import { throttle } from "./middlewares/throttle";
@@ -16,46 +13,44 @@ import { isEmpty, safeInteger } from "./utils/common";
 import { MAX_INSTANCES } from "./utils/cluster";
 import { logInfo, logWarn } from "./utils/logger";
 
+import owner from "./apis/owner";
+import queue from "./apis/queue";
+
 type Socket = {
 	Bindings: {
 		ip: SocketAddress;
 	};
 };
 
-function main(): Hono<Var & Socket, BlankSchema, "/"> {
+const api = new Hono<Var & Socket>();
 
-	const api = new Hono<Var & Socket>();
+api.use(secureHeaders({
+	crossOriginOpenerPolicy: false,
+	crossOriginResourcePolicy: false,
+	originAgentCluster: false,
+	xDnsPrefetchControl: false,
+	xDownloadOptions: false,
+	xFrameOptions: "DENY",
+	xPermittedCrossDomainPolicies: false
+}));
+api.use(async (c, next) => {
+	c.set("clientId", hash(c.env.ip.address).toString());
+	c.set("ip", c.env.ip.address);
+	c.set("todayAt", new Date().getTime());
+	c.set("userAgent", c.req.header("User-Agent") ?? null);
+	await next();
+});
 
-	api.use(secureHeaders({
-		crossOriginOpenerPolicy: false,
-		crossOriginResourcePolicy: false,
-		originAgentCluster: false,
-		xDnsPrefetchControl: false,
-		xDownloadOptions: false,
-		xFrameOptions: "DENY",
-		xPermittedCrossDomainPolicies: false
-	}));
-	api.use(async (c, next) => {
-		c.set("clientId", hash(c.env.ip.address).toString());
-		c.set("ip", c.env.ip.address);
-		c.set("todayAt", new Date().getTime());
-		c.set("userAgent", c.req.header("User-Agent") ?? null);
-		await next();
-	});
+api.notFound(() => new Response(null, { status: 404 }));
+api.onError(exceptionFilter);
 
-	api.notFound(() => new Response(null, { status: 404 }));
-	api.onError(exceptionFilter);
+api.use(prettyJSON({ space: 4 }));
+api.use(throttle);
 
-	api.use(prettyJSON({ space: 4 }));
-	api.use(throttle);
+api.get("/status", c => c.text("OK"));
 
-	api.get("/status", c => c.text("OK"));
-
-	api.basePath("/v1").route("/owners", owner());
-	api.basePath("/v1").route("/queues", queue());
-
-	return api;
-}
+api.basePath("/v1").route("/owners", owner);
+api.basePath("/v1").route("/queues", queue);
 
 function read(path?: string): BunFile | undefined {
 	try {
@@ -72,13 +67,13 @@ function read(path?: string): BunFile | undefined {
 
 /**
  * Note that currently.
- * 
+ *
  * reusePort is only effective on Linux.
  * On Windows and macOS, the operating system does not load balance HTTP connections as one would expect.
 */
 function startServer(reusePort?: boolean): void {
 	const server = serve({
-		fetch: (req, server) => main().fetch(req, { ip: server.requestIP(req) }),
+		fetch: (req, server) => api.fetch(req, { ip: server.requestIP(req) }),
 		reusePort,
 		port: safeInteger(env.PORT) || 9220,
 		maxRequestBodySize: safeInteger(env.MAX_SIZE_BODY_REQUEST) || 32768,

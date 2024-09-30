@@ -1,13 +1,18 @@
 import { env } from "bun";
+import { Database } from "bun:sqlite";
 
 import { Context, Next } from "hono";
 import { HTTPException } from "hono/http-exception";
 
 import { millisecondsToSeconds } from "date-fns";
 
-import { throttleDb } from "../db/db";
 import { safeInteger } from "../utils/common";
 import { logWarn } from "../utils/logger";
+
+export const db = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
+	create: false,
+	strict: true
+});
 
 export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 	const MAX_REQUEST = safeInteger(env.MAX_THROTTLE_REQUEST) || 10;
@@ -16,7 +21,7 @@ export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 	const id = c.get("clientId");
 	const todayAt = c.get("todayAt");
 
-	const stmtControl = throttleDb.query<Omit<ControlTable, "id">, string>(`
+	const stmtControl = db.query<Omit<ControlTable, "id">, string>(`
 		SELECT requestCount, lastRequestAt
 		FROM control
 		WHERE id = ?
@@ -39,7 +44,7 @@ export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 				}));
 				throw new HTTPException(429);
 			}
-			const stmtRequestCount = throttleDb.query<Pick<ControlTable, "requestCount">, string>(`
+			const stmtRequestCount = db.query<Pick<ControlTable, "requestCount">, string>(`
 				UPDATE control
 				SET requestCount = requestCount + 1
 				WHERE id = ?
@@ -48,20 +53,20 @@ export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 			const { requestCount } = stmtRequestCount.get(id)!;
 			c.header("RateLimit-Remaining", (MAX_REQUEST - requestCount).toString());
 		} else {
-			throttleDb.run("UPDATE control SET requestCount = 1, lastRequestAt = ?1 WHERE id = ?2", [
+			db.run("UPDATE control SET requestCount = 1, lastRequestAt = ?1 WHERE id = ?2", [
 				todayAt,
 				id
 			]);
 			c.header("RateLimit-Remaining", (MAX_REQUEST - 1).toString());
 		}
 	} else {
-		throttleDb.run("INSERT INTO control (id, requestCount, lastRequestAt) VALUES (?1, ?2, ?3)", [
+		db.run("INSERT INTO control (id, requestCount, lastRequestAt) VALUES (?1, ?2, ?3)", [
 			id,
 			1,
 			todayAt
 		]);
 		c.header("RateLimit-Remaining", (MAX_REQUEST - 1).toString());
 	}
-	
+
 	await next();
 }

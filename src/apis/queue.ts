@@ -4,7 +4,6 @@ import { rmSync } from "node:fs";
 
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { BlankSchema } from "hono/types";
 
 import { zValidator } from "@hono/zod-validator";
 import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
@@ -60,296 +59,291 @@ const backupJob = Cron(
 	}
 );
 
-export function queue(): Hono<Var, BlankSchema, "/"> {
+const queue = new Hono<Var>();
 
-	const api = new Hono<Var>();
-
-	api.get(
-		"/",
-		tasksAuth(),
-		zValidator("query", queuesQuerySchema, (result, c) => {
-			if (!result.success) {
-				const errors = result.error.format();
-				throw new HTTPException(400, {
-					cause: errors
-				});
-			}
-		}),
-		(c) => {
-			let sql: string;
-			const ownerId = c.get("ownerId");
-			const { limit, offset, order, sort } = c.req.valid("query")!;
-			if (sort == "asc") {
-				sql = `
-					SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
-					FROM queue
-					WHERE ownerId = ?1
-					ORDER BY ?2 ASC
-					LIMIT ?3
-					OFFSET ?4
-				`;
-			} else {
-				sql = `
-					SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
-					FROM queue
-					WHERE ownerId = ?1
-					ORDER BY ?2 DESC
-					LIMIT ?3
-					OFFSET ?4
-				`;
-			}
-			const raw = tasksDb.query<Omit<QueueTable, "ownerId" | "response">, [string, string, number, number]>(sql);
-			const queues = raw.all(ownerId, order, limit, offset).map(q => {
-				if (q.metadata) {
-					return {
-						...q,
-						metadata: JSON.parse(dec(q.metadata, cipherKeyGen(q.id)))
-					};
-				}
-				return q;
+queue.get(
+	"/",
+	tasksAuth(),
+	zValidator("query", queuesQuerySchema, (result, c) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
 			});
-			return c.json(queues);
 		}
-	);
-
-	api.get(
-		"/:queueId",
-		tasksAuth(),
-		zValidator("param", queueIdSchema, (result, c) => {
-			if (!result.success) {
-				const errors = result.error.format();
-				throw new HTTPException(400, {
-					cause: errors
-				});
-			}
-		}),
-		(c) => {
-			const { queueId } = c.req.valid("param");
-			const raw = tasksDb.query<Omit<QueueTable, "ownerId">, string>(`
-				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, response, metadata
+	}),
+	(c) => {
+		let sql: string;
+		const ownerId = c.get("ownerId");
+		const { limit, offset, order, sort } = c.req.valid("query")!;
+		if (sort == "asc") {
+			sql = `
+				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
 				FROM queue
-				WHERE id = ?
-				LIMIT 1
-			`);
-			const queue = raw.get(queueId);
-			if (queue == null) {
-				return c.json({}, 404);
-			}
-			if (queue.response) {
-				queue.response = dec(queue.response, cipherKeyGen(queueId));
-			}
-			if (queue.metadata) {
-				queue.metadata = JSON.parse(dec(queue.metadata, cipherKeyGen(queueId)));
-			}
-			return c.json(queue);
-		}
-	);
-
-	api.post(
-		"/register",
-		tasksAuth(),
-		zValidator("json", taskSchema, (result, c) => {
-			if (!result.success) {
-				const errors = result.error.format();
-				throw new HTTPException(400, {
-					cause: errors
-				});
-			}
-		}),
-		async (c, next) => {
-			const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>(`
-				SELECT 'Ok' AS status
-				FROM owner
-				WHERE id = ? AND tasksInQueue < tasksInQueueLimit
-			`);
-			const status = stmtTasksInQueue.get(c.get("ownerId"));
-			if (status == null) {
-				throw new HTTPException(422, {
-					cause: "Tasks in queue has reached it's limit"
-				});
-			}
-			await next();
-		},
-		(c) => {
-			const queue = registerTask(
-				c.req.valid("json"),
-				c.get("todayAt"),
-				c.get("ownerId")
-			);
-			return c.json(queue, 201);
-		}
-	);
-
-	api.patch(
-		"/:queueId/pause",
-		tasksAuth(),
-		zValidator("param", queueIdSchema, (result, c) => {
-			if (!result.success) {
-				const errors = result.error.format();
-				throw new HTTPException(400, {
-					cause: errors
-				});
-			}
-		}),
-		(c) => {
-			const { queueId } = c.req.valid("param");
-			const raw = tasksDb.query<{ status: "Ok" }, [string, TaskState]>(`
-				SELECT 'Done' AS status
+				WHERE ownerId = ?1
+				ORDER BY ?2 ASC
+				LIMIT ?3
+				OFFSET ?4
+			`;
+		} else {
+			sql = `
+				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
 				FROM queue
-				WHERE id = ?1 AND state = ?2
-				LIMIT 1
-			`);
-			const status = raw.get(queueId, "RUNNING");
-			if (status == null) {
-				throw new HTTPException(422);
+				WHERE ownerId = ?1
+				ORDER BY ?2 DESC
+				LIMIT ?3
+				OFFSET ?4
+			`;
+		}
+		const raw = tasksDb.query<Omit<QueueTable, "ownerId" | "response">, [string, string, number, number]>(sql);
+		const queues = raw.all(ownerId, order, limit, offset).map(q => {
+			if (q.metadata) {
+				return {
+					...q,
+					metadata: JSON.parse(dec(q.metadata, cipherKeyGen(q.id)))
+				};
 			}
-			tasksDb.run<[TaskState, number, string]>(`
-				UPDATE queue
-				SET state = ?1, estimateEndAt = ?2
-				WHERE id = ?3
-			`, [
-				"PAUSED",
-				c.get("todayAt"),
+			return q;
+		});
+		return c.json(queues);
+	}
+);
+
+queue.get(
+	"/:queueId",
+	tasksAuth(),
+	zValidator("param", queueIdSchema, (result, c) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
+			});
+		}
+	}),
+	(c) => {
+		const { queueId } = c.req.valid("param");
+		const raw = tasksDb.query<Omit<QueueTable, "ownerId">, string>(`
+			SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, response, metadata
+			FROM queue
+			WHERE id = ?
+			LIMIT 1
+		`);
+		const queue = raw.get(queueId);
+		if (queue == null) {
+			return c.json({}, 404);
+		}
+		if (queue.response) {
+			queue.response = dec(queue.response, cipherKeyGen(queueId));
+		}
+		if (queue.metadata) {
+			queue.metadata = JSON.parse(dec(queue.metadata, cipherKeyGen(queueId)));
+		}
+		return c.json(queue);
+	}
+);
+
+queue.post(
+	"/register",
+	tasksAuth(),
+	zValidator("json", taskSchema, (result, c) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
+			});
+		}
+	}),
+	async (c, next) => {
+		const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>(`
+			SELECT 'Ok' AS status
+			FROM owner
+			WHERE id = ? AND tasksInQueue < tasksInQueueLimit
+		`);
+		const status = stmtTasksInQueue.get(c.get("ownerId"));
+		if (status == null) {
+			throw new HTTPException(422, {
+				cause: "Tasks in queue has reached it's limit"
+			});
+		}
+		await next();
+	},
+	(c) => {
+		const queue = registerTask(
+			c.req.valid("json"),
+			c.get("todayAt"),
+			c.get("ownerId")
+		);
+		return c.json(queue, 201);
+	}
+);
+
+queue.patch(
+	"/:queueId/pause",
+	tasksAuth(),
+	zValidator("param", queueIdSchema, (result, c) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
+			});
+		}
+	}),
+	(c) => {
+		const { queueId } = c.req.valid("param");
+		const raw = tasksDb.query<{ status: "Ok" }, [string, TaskState]>(`
+			SELECT 'Done' AS status
+			FROM queue
+			WHERE id = ?1 AND state = ?2
+			LIMIT 1
+		`);
+		const status = raw.get(queueId, "RUNNING");
+		if (status == null) {
+			throw new HTTPException(422);
+		}
+		tasksDb.run<[TaskState, number, string]>(`
+			UPDATE queue
+			SET state = ?1, estimateEndAt = ?2
+			WHERE id = ?3
+		`, [
+			"PAUSED",
+			c.get("todayAt"),
+			queueId
+		]);
+		if (clusterMode == "ACTIVE" && process.send) {
+			process.send({
+				emit: "REVOKE",
 				queueId
-			]);
-			if (clusterMode == "ACTIVE" && process.send) {
-				process.send({
-					emit: "REVOKE",
-					queueId
-				});
-			} else {
-				subscriptionManager.unsubscribe(queueId);
-			}
-			return c.json(status);
+			});
+		} else {
+			subscriptionManager.unsubscribe(queueId);
 		}
-	);
+		return c.json(status);
+	}
+);
 
-	api.patch(
-		"/:queueId/resume",
-		tasksAuth(),
-		zValidator("param", queueIdSchema, (result, c) => {
-			if (!result.success) {
-				const errors = result.error.format();
-				throw new HTTPException(400, {
-					cause: errors
-				});
-			}
-		}),
-		(c) => {
-			const { queueId } = c.req.valid("param");
-			const raw1 = tasksDb.query<QueueHistory, [string, TaskState]>(`
-				SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
-				FROM queue AS q
-				JOIN config AS c ON q.id = c.id
-				WHERE q.id = ?1 AND q.state = ?2
-				LIMIT 1
-			`);
-			const queue = raw1.get(queueId, "PAUSED");
-			if (queue == null) {
-				throw new HTTPException(422);
-			}
-			const { body, dueTime, estimateExecutionAt } = resume(queue, queue.estimateEndAt);
-			const raw2 = tasksDb.query<QueueTable, [TaskState, 0, number, string]>(`
-				UPDATE queue
-				SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
-				WHERE id = ?4
-				RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response, metadata
-			`);
-			const currentQueue = raw2.get("RUNNING", 0, estimateExecutionAt, queueId)!;
-			setScheduler(body, dueTime, queueId);
-			if (currentQueue.metadata) {
-				currentQueue.metadata = JSON.parse(dec(currentQueue.metadata, cipherKeyGen(queueId)));
-			}
-			return c.json(currentQueue);
+queue.patch(
+	"/:queueId/resume",
+	tasksAuth(),
+	zValidator("param", queueIdSchema, (result, c) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
+			});
 		}
-	);
-
-	api.patch(
-		"/:queueId/revoke",
-		tasksAuth(),
-		zValidator("param", queueIdSchema, (result, c) => {
-			if (!result.success) {
-				const errors = result.error.format();
-				throw new HTTPException(400, {
-					cause: errors
-				});
-			}
-		}),
-		(c) => {
-			const { queueId } = c.req.valid("param");
-			const raw = tasksDb.query<{ status: "Done" }, [string, TaskState, TaskState]>(`
-				SELECT 'Done' AS status
-				FROM queue
-				WHERE id = ?1 AND state IN (?2, ?3)
-				LIMIT 1
-			`);
-			const queue = raw.get(queueId, "RUNNING", "PAUSED");
-			if (queue == null) {
-				throw new HTTPException(422);
-			}
-			const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>(`
-				UPDATE queue
-				SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4
-				WHERE id = ?5
-			`);
-			const stmtRetryCount = tasksDb.query<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>(`
-				UPDATE config
-				SET retrying = ?1
-				WHERE id = ?2
-				RETURNING retryCount, retryLimit
-			`);
-			tasksDb.transaction(() => {
-				stmtQueue.run("REVOKED", 0, null, c.get("todayAt"), queueId);
-				stmtRetryCount.run(0, queueId);
-			})();
-			if (clusterMode == "ACTIVE" && process.send) {
-				process.send({
-					emit: "REVOKE",
-					queueId
-				});
-			} else {
-				subscriptionManager.unsubscribe(queueId);
-			}
-			return c.json(queue);
+	}),
+	(c) => {
+		const { queueId } = c.req.valid("param");
+		const raw1 = tasksDb.query<QueueHistory, [string, TaskState]>(`
+			SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
+			FROM queue AS q
+			JOIN config AS c ON q.id = c.id
+			WHERE q.id = ?1 AND q.state = ?2
+			LIMIT 1
+		`);
+		const queue = raw1.get(queueId, "PAUSED");
+		if (queue == null) {
+			throw new HTTPException(422);
 		}
-	);
-
-	api.delete(
-		"/:queueId",
-		tasksAuth(),
-		zValidator("param", queueIdSchema, (result, c) => {
-			if (!result.success) {
-				const errors = result.error.format();
-				throw new HTTPException(400, {
-					cause: errors
-				});
-			}
-		}),
-		(c) => {
-			const { queueId } = c.req.valid("param");
-			const raw = tasksDb.query<Queue, string>(`
-				DELETE FROM queue
-				WHERE id = ?
-				RETURNING 'Done' AS status
-			`);
-			const deleted = raw.get(queueId);
-			if (deleted == null) {
-				throw new HTTPException(422);
-			}
-			if (clusterMode == "ACTIVE" && process.send) {
-				process.send({
-					emit: "REVOKE",
-					queueId
-				});
-			} else {
-				subscriptionManager.unsubscribe(queueId);
-			}
-			return c.json(deleted);
+		const { body, dueTime, estimateExecutionAt } = resume(queue, queue.estimateEndAt);
+		const raw2 = tasksDb.query<QueueTable, [TaskState, 0, number, string]>(`
+			UPDATE queue
+			SET state = ?1, estimateEndAt = ?2, estimateExecutionAt = ?3
+			WHERE id = ?4
+			RETURNING id, state, statusCode, createdAt, estimateEndAt, estimateExecutionAt, response, metadata
+		`);
+		const currentQueue = raw2.get("RUNNING", 0, estimateExecutionAt, queueId)!;
+		setScheduler(body, dueTime, queueId);
+		if (currentQueue.metadata) {
+			currentQueue.metadata = JSON.parse(dec(currentQueue.metadata, cipherKeyGen(queueId)));
 		}
-	);
+		return c.json(currentQueue);
+	}
+);
 
-	return api;
-}
+queue.patch(
+	"/:queueId/revoke",
+	tasksAuth(),
+	zValidator("param", queueIdSchema, (result, c) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
+			});
+		}
+	}),
+	(c) => {
+		const { queueId } = c.req.valid("param");
+		const raw = tasksDb.query<{ status: "Done" }, [string, TaskState, TaskState]>(`
+			SELECT 'Done' AS status
+			FROM queue
+			WHERE id = ?1 AND state IN (?2, ?3)
+			LIMIT 1
+		`);
+		const queue = raw.get(queueId, "RUNNING", "PAUSED");
+		if (queue == null) {
+			throw new HTTPException(422);
+		}
+		const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>(`
+			UPDATE queue
+			SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4
+			WHERE id = ?5
+		`);
+		const stmtRetryCount = tasksDb.query<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>(`
+			UPDATE config
+			SET retrying = ?1
+			WHERE id = ?2
+			RETURNING retryCount, retryLimit
+		`);
+		tasksDb.transaction(() => {
+			stmtQueue.run("REVOKED", 0, null, c.get("todayAt"), queueId);
+			stmtRetryCount.run(0, queueId);
+		})();
+		if (clusterMode == "ACTIVE" && process.send) {
+			process.send({
+				emit: "REVOKE",
+				queueId
+			});
+		} else {
+			subscriptionManager.unsubscribe(queueId);
+		}
+		return c.json(queue);
+	}
+);
+
+queue.delete(
+	"/:queueId",
+	tasksAuth(),
+	zValidator("param", queueIdSchema, (result, c) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
+			});
+		}
+	}),
+	(c) => {
+		const { queueId } = c.req.valid("param");
+		const raw = tasksDb.query<Queue, string>(`
+			DELETE FROM queue
+			WHERE id = ?
+			RETURNING 'Done' AS status
+		`);
+		const deleted = raw.get(queueId);
+		if (deleted == null) {
+			throw new HTTPException(422);
+		}
+		if (clusterMode == "ACTIVE" && process.send) {
+			process.send({
+				emit: "REVOKE",
+				queueId
+			});
+		} else {
+			subscriptionManager.unsubscribe(queueId);
+		}
+		return c.json(deleted);
+	}
+);
 
 function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queue {
 	let rawColumn = "INSERT INTO config (";
@@ -362,7 +356,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	const estimateExecutionAt = typeof dueTime === "number"
 		? addMilliseconds(todayAt, dueTime).getTime()
 		: dueTime.getTime();
-	// 
+	//
 	const rawBindings = [] as (string | number)[];
 	// Id
 	rawColumn += "id, ";
@@ -484,7 +478,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	rawColumn += "timeout, ";
 	rawValues += "?, ";
 	rawBindings.push(body.config.timeout);
-	// 
+	//
 	if (body.config.timeoutAt) {
 		rawColumn += "timeoutAt, ";
 		rawValues += "?, ";
@@ -609,7 +603,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	rawColumn += "ipVersion, ";
 	rawValues += "?, ";
 	rawBindings.push(body.config.ipVersion);
-	// 
+	//
 	if (body.config.hsts) {
 		rawColumn += "hsts, ";
 		rawValues += "?, ";
@@ -698,10 +692,10 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		rawValues += "?, ";
 		rawBindings.push(0);
 	}
-	// 
+	//
 	rawColumn = rawColumn.substring(0, rawColumn.length - 2) + ")";
 	rawValues = rawValues.substring(0, rawValues.length - 2) + ")";
-	// 
+	//
 	const metadata = !!body.metadata
 		? enc(JSON.stringify(body.metadata), cipherKey)
 		: null;
@@ -718,9 +712,9 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		]);
 		tasksDb.run(rawColumn + " " + rawValues, rawBindings);
 	})();
-	// 
+	//
 	setScheduler(body, dueTime, queueId);
-	// 
+	//
 	return {
 		id: queueId,
 		state: "RUNNING",
@@ -1122,7 +1116,7 @@ function reschedule(): void {
 	}
 	let queuesResumable: QueueResumable[] | null = [];
 	const batchSize = 500;
-	// 
+	//
 	if (clusterMode == "ACTIVE") {
 		if (cluster.isPrimary) {
 			const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
@@ -1206,7 +1200,7 @@ function reschedule(): void {
 			});
 		}
 	}
-	// 
+	//
 	if (clusterMode == "INACTIVE") {
 		const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
 			SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
@@ -1266,3 +1260,5 @@ function runMessageEmitter(): void {
 }
 
 reschedule();
+
+export default queue;

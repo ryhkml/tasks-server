@@ -7,12 +7,13 @@ import { customAlphabet } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
 
-import { queue } from "./queue";
 import { tasksDb } from "../db/db";
 import { exceptionFilter } from "../middlewares/exception-filter";
 import { taskSchema } from "../schemas/task";
 import { queuesQuerySchema } from "../schemas/queue";
 import { logWarn } from "../utils/logger";
+
+import queue from "./queue";
 
 type TaskRequest = z.infer<typeof taskSchema>;
 type Queue = Omit<QueueTable, "ownerId" | "metadata"> & { metadata: RecordString | null };
@@ -31,7 +32,7 @@ describe("TEST QUEUE", () => {
 	const stmtRetryCount = tasksDb.prepare<Pick<ConfigTable, "retryCount">, string>("SELECT retryCount FROM config WHERE id = ?");
 
 	const api = new Hono<Var>();
-	
+
 	api.use(async (c, next) => {
 		c.set("todayAt", new Date().getTime());
 		await next();
@@ -39,7 +40,7 @@ describe("TEST QUEUE", () => {
 
 	api.onError(exceptionFilter);
 
-	api.basePath("/v1").route("/queues", queue());
+	api.basePath("/v1").route("/queues", queue);
 
 	beforeAll(async () => {
 		ownerId = ulid(todayAt);
@@ -53,7 +54,7 @@ describe("TEST QUEUE", () => {
 			ownerName,
 			todayAt
 		]);
-		for (let i = 1; i <= 3; i++) {		
+		for (let i = 1; i <= 3; i++) {
 			await fetch(env.DUMMY_TARGET_URL, {
 				method: "GET",
 				cache: "no-cache",
@@ -522,7 +523,7 @@ describe("TEST QUEUE", () => {
 				expect(currentQueue.statusCode).toBe(404);
 			});
 		});
-		
+
 		describe("", () => {
 			it("should successfully register and retry 1 time", async () => {
 				const body: TaskRequest = {
@@ -622,7 +623,7 @@ describe("TEST QUEUE", () => {
 				expect(res.status).toBe(400);
 			});
 		});
-		
+
 		describe("", () => {
 			it("should unsuccessfully register due to retry date is a previous execution date", async () => {
 				const body: TaskRequest = {
