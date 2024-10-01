@@ -10,18 +10,15 @@ echo ".env.development file has been created"
 
 cat .env.example > .env.test
 sed -i "s|9220|9320|" .env.test
-sed -i "s|./.database/tasks-dev.db|./.database/tasks-test.db|" .env.test
-sed -i "s|/tmp/tasks/bakdb/dev|/tmp/tasks/bakdb/test|" .env.test
+sed -i "s|.database/tasks-dev.db|.database/tasks-test.db|" .env.test
 echo ".env.test file has been created"
 
 cat .env.example > .env.production
 sed -i "s|9220|9420|" .env.production
-sed -i "s|./.database/tasks-dev.db|./.database/tasks.db|" .env.production
-sed -i "s|/tmp/tasks/bakdb/dev|/tmp/tasks/bakdb|" .env.production
+sed -i "s|.database/tasks-dev.db|.database/tasks.db|" .env.production
 echo ".env.production file has been created"
 
 bun install --frozen-lockfile
 bun --env-file=.env.development run init-db.ts
 
-echo
 echo "Done"
