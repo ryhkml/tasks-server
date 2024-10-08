@@ -64,7 +64,7 @@ const queue = new Hono<Var>();
 queue.get(
 	"/",
 	tasksAuth(),
-	zValidator("query", queuesQuerySchema, (result, c) => {
+	zValidator("query", queuesQuerySchema, (result) => {
 		if (!result.success) {
 			const errors = result.error.format();
 			throw new HTTPException(400, {
@@ -112,7 +112,7 @@ queue.get(
 queue.get(
 	"/:queueId",
 	tasksAuth(),
-	zValidator("param", queueIdSchema, (result, c) => {
+	zValidator("param", queueIdSchema, (result) => {
 		if (!result.success) {
 			const errors = result.error.format();
 			throw new HTTPException(400, {
@@ -145,7 +145,7 @@ queue.get(
 queue.post(
 	"/register",
 	tasksAuth(),
-	zValidator("json", taskSchema, (result, c) => {
+	zValidator("json", taskSchema, (result) => {
 		if (!result.success) {
 			const errors = result.error.format();
 			throw new HTTPException(400, {
@@ -180,7 +180,7 @@ queue.post(
 queue.patch(
 	"/:queueId/pause",
 	tasksAuth(),
-	zValidator("param", queueIdSchema, (result, c) => {
+	zValidator("param", queueIdSchema, (result) => {
 		if (!result.success) {
 			const errors = result.error.format();
 			throw new HTTPException(400, {
@@ -224,7 +224,7 @@ queue.patch(
 queue.patch(
 	"/:queueId/resume",
 	tasksAuth(),
-	zValidator("param", queueIdSchema, (result, c) => {
+	zValidator("param", queueIdSchema, (result) => {
 		if (!result.success) {
 			const errors = result.error.format();
 			throw new HTTPException(400, {
@@ -264,7 +264,7 @@ queue.patch(
 queue.patch(
 	"/:queueId/revoke",
 	tasksAuth(),
-	zValidator("param", queueIdSchema, (result, c) => {
+	zValidator("param", queueIdSchema, (result) => {
 		if (!result.success) {
 			const errors = result.error.format();
 			throw new HTTPException(400, {
@@ -314,7 +314,7 @@ queue.patch(
 queue.delete(
 	"/:queueId",
 	tasksAuth(),
-	zValidator("param", queueIdSchema, (result, c) => {
+	zValidator("param", queueIdSchema, (result) => {
 		if (!result.success) {
 			const errors = result.error.format();
 			throw new HTTPException(400, {
