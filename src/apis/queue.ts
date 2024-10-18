@@ -729,7 +729,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 
 function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string): void {
 	let httpId = "";
-	const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>(`
+	const stmtQueue = tasksDb.prepare<void, [TaskState, number, string | null, number, string]>(`
 		UPDATE queue
 		SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4
 		WHERE id = ?5
@@ -787,7 +787,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 							let retryDueTime = 0 as number | Date;
 							let estimateNextRetryAt = 0;
 							const retryingAt = new Date().getTime();
-							const stmtRetryCount = tasksDb.query<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>(`
+							const stmtRetryCount = tasksDb.prepare<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>(`
 								UPDATE config
 								SET retrying = ?1
 								WHERE id = ?2
@@ -810,12 +810,12 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 								"X-Tasks-Retry-Limit": retryLimit.toString(),
 								"X-Tasks-Estimate-Next-Retry-At": estimateNextRetryAt.toString()
 							};
-							const stmtQueueError = tasksDb.query<void, [number, string, string]>(`
+							const stmtQueueError = tasksDb.prepare<void, [number, string, string]>(`
 								UPDATE queue
 								SET statusCode = ?1, response = ?2
 								WHERE id = ?3
 							`);
-							const stmtRetryCountError = tasksDb.query<void, [string, number, string]>(`
+							const stmtRetryCountError = tasksDb.prepare<void, [string, number, string]>(`
 								UPDATE config
 								SET headers = ?1, estimateNextRetryAt = ?2
 								WHERE id = ?3
@@ -839,7 +839,13 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 									statusCode: error.status
 								}));
 							}
-							return timer(retryDueTime);
+							return timer(retryDueTime).pipe(
+                                finalize(() => {
+                                    stmtRetryCount.finalize();
+                                    stmtQueueError.finalize();
+                                    stmtRetryCountError.finalize();
+                                })
+                            );
 						}
 					})
 				);
@@ -850,6 +856,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 					force: true
 				});
 				subscriptionManager.unsubscribe(queueId);
+                stmtQueue.finalize();
 			})
 		)
 		.subscribe({
