@@ -18,7 +18,7 @@
 		"@hono/zod-validator": "^0.2.2",
 		"croner": "^8.1.2",
 		"date-fns": "^4.1.0",
-		"hono": "^4.6.3",
+		"hono": "^4.6.5",
 		"nanoid": "^5.0.7",
 		"rxjs": "^7.8.1",
 		"tar": "^7.4.3",
@@ -26,6 +26,6 @@
 		"zod": "^3.23.8"
 	},
 	"devDependencies": {
-		"@types/bun": "^1.1.10"
+		"@types/bun": "latest"
 	}
 }
