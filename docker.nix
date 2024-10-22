@@ -8,7 +8,7 @@ let
 in
 pkgs.buildEnv {
   name = "tasks-nix-env";
-  paths = with pkgs; [
+  paths = [
     tasksCurl
   ];
 }
