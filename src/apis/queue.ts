@@ -7,7 +7,22 @@ import { HTTPException } from "hono/http-exception";
 
 import { zValidator } from "@hono/zod-validator";
 import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
-import { catchError, defer, delayWhen, exhaustMap, expand, filter, finalize, map, of, retry, take, tap, throwError, timer } from "rxjs";
+import {
+	catchError,
+	defer,
+	delayWhen,
+	exhaustMap,
+	expand,
+	filter,
+	finalize,
+	map,
+	of,
+	retry,
+	take,
+	tap,
+	throwError,
+	timer
+} from "rxjs";
 import { z } from "zod";
 
 import cluster from "node:cluster";
@@ -73,39 +88,23 @@ queue.get(
 		}
 	}),
 	(c) => {
-		let sql: string;
+		let sql = "SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt FROM queue WHERE ownerId = ?1";
 		const ownerId = c.get("ownerId");
-		const { limit, offset, order, sort } = c.req.valid("query")!;
-		if (sort == "asc") {
-			sql = `
-				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
-				FROM queue
-				WHERE ownerId = ?1
-				ORDER BY ?2 ASC
-				LIMIT ?3
-				OFFSET ?4
-			`;
-		} else {
-			sql = `
-				SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, metadata
-				FROM queue
-				WHERE ownerId = ?1
-				ORDER BY ?2 DESC
-				LIMIT ?3
-				OFFSET ?4
-			`;
+		const { limit, offset, order, sort, state } = c.req.valid("query")!;
+		if (state) {
+			sql += " AND state = ?2";
 		}
-		const raw = tasksDb.query<Omit<QueueTable, "ownerId" | "response">, [string, string, number, number]>(sql);
-		const queues = raw.all(ownerId, order, limit, offset).map(q => {
-			if (q.metadata) {
-				return {
-					...q,
-					metadata: JSON.parse(dec(q.metadata, cipherKeyGen(q.id)))
-				};
-			}
-			return q;
-		});
-		return c.json(queues);
+		if (sort == "asc") {
+			sql += " ORDER BY ?3 ASC";
+		} else {
+			sql += " ORDER BY ?3 DESC";
+		}
+		sql += " LIMIT ?4 OFFSET ?5";
+		const raw = tasksDb.query<
+			Omit<QueueTable, "ownerId" | "metadata" | "response">,
+			[string, TaskState | null, string, number, number]
+		>(sql);
+		return c.json(raw.all(ownerId, state || null, order, limit, offset));
 	}
 );
 
@@ -168,11 +167,7 @@ queue.post(
 		await next();
 	},
 	(c) => {
-		const queue = registerTask(
-			c.req.valid("json"),
-			c.get("todayAt"),
-			c.get("ownerId")
-		);
+		const queue = registerTask(c.req.valid("json"), c.get("todayAt"), c.get("ownerId"));
 		return c.json(queue, 201);
 	}
 );
@@ -200,15 +195,14 @@ queue.patch(
 		if (status == null) {
 			throw new HTTPException(422);
 		}
-		tasksDb.run<[TaskState, number, string]>(`
+		tasksDb.run<[TaskState, number, string]>(
+			`
 			UPDATE queue
 			SET state = ?1, estimateEndAt = ?2
 			WHERE id = ?3
-		`, [
-			"PAUSED",
-			c.get("todayAt"),
-			queueId
-		]);
+		`,
+			["PAUSED", c.get("todayAt"), queueId]
+		);
 		if (clusterMode == "ACTIVE" && process.send) {
 			process.send({
 				emit: "REVOKE",
@@ -350,12 +344,8 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	let rawValues = "VALUES (";
 	const queueId = todayAt.toString(16).toUpperCase() + todayAt.toString();
 	const cipherKey = cipherKeyGen(queueId);
-	const dueTime = !!body.config.executeAt
-		? new Date(body.config.executeAt)
-		: body.config.executionDelay;
-	const estimateExecutionAt = typeof dueTime === "number"
-		? addMilliseconds(todayAt, dueTime).getTime()
-		: dueTime.getTime();
+	const dueTime = !!body.config.executeAt ? new Date(body.config.executeAt) : body.config.executionDelay;
+	const estimateExecutionAt = typeof dueTime === "number" ? addMilliseconds(todayAt, dueTime).getTime() : dueTime.getTime();
 	//
 	const rawBindings = [] as (string | number)[];
 	// Id
@@ -389,69 +379,49 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		rawColumn += "data, ";
 		rawValues += "?, ";
 		if (typeof body.httpRequest.data === "string") {
-			rawBindings.push(
-				enc(body.httpRequest.data, cipherKey)
-			);
+			rawBindings.push(enc(body.httpRequest.data, cipherKey));
 		} else {
-			rawBindings.push(
-				enc(JSON.stringify(body.httpRequest.data), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.httpRequest.data), cipherKey));
 		}
 	}
 	if (body.httpRequest.query) {
 		rawColumn += "query, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.httpRequest.query), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.httpRequest.query), cipherKey));
 	}
 	if (body.httpRequest.cookie) {
 		rawColumn += "cookie, ";
 		rawValues += "?, ";
 		if (typeof body.httpRequest.cookie === "string") {
-			rawBindings.push(
-				enc(body.httpRequest.cookie, cipherKey)
-			);
+			rawBindings.push(enc(body.httpRequest.cookie, cipherKey));
 		} else {
-			rawBindings.push(
-				enc(JSON.stringify(body.httpRequest.cookie), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.httpRequest.cookie), cipherKey));
 		}
 	}
 	if (body.httpRequest.headers) {
 		rawColumn += "headers, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.httpRequest.headers), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.httpRequest.headers), cipherKey));
 	}
 	if (body.httpRequest.authBasic) {
 		rawColumn += "authBasic, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.httpRequest.authBasic), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.httpRequest.authBasic), cipherKey));
 	}
 	if (body.httpRequest.authDigest) {
 		rawColumn += "authDigest, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.httpRequest.authDigest), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.httpRequest.authDigest), cipherKey));
 	}
 	if (body.httpRequest.authNtlm) {
 		rawColumn += "authNtlm, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.httpRequest.authNtlm), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.httpRequest.authNtlm), cipherKey));
 	}
 	if (body.httpRequest.authAwsSigv4) {
 		rawColumn += "authAwsSigv4, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.httpRequest.authAwsSigv4), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.httpRequest.authAwsSigv4), cipherKey));
 	}
 	if (body.config.retryAt) {
 		rawColumn += "retry, retryAt, retryLimit, retryExponential, ";
@@ -492,22 +462,16 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	if (body.config.ca) {
 		rawColumn += "ca, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.config.ca), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.config.ca), cipherKey));
 	}
 	if (body.config.cert?.value) {
 		rawColumn += "cert, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.config.cert), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.config.cert), cipherKey));
 		if (body.config.certType) {
 			rawColumn += "certType, ";
 			rawValues += "?, ";
-			rawBindings.push(
-				enc(body.config.certType, cipherKey)
-			);
+			rawBindings.push(enc(body.config.certType, cipherKey));
 		}
 	}
 	if (body.config.certStatus) {
@@ -518,15 +482,11 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	if (body.config.key) {
 		rawColumn += "key, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(body.config.key, cipherKey)
-		);
+		rawBindings.push(enc(body.config.key, cipherKey));
 		if (body.config.keyType) {
 			rawColumn += "keyType, ";
 			rawValues += "?, ";
-			rawBindings.push(
-				enc(body.config.keyType, cipherKey)
-			);
+			rawBindings.push(enc(body.config.keyType, cipherKey));
 		}
 	}
 	if (body.config.location) {
@@ -546,24 +506,18 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		if (body.config.locationTrusted) {
 			rawColumn += "locationTrusted, ";
 			rawValues += "?, ";
-			rawBindings.push(
-				enc(JSON.stringify(body.config.locationTrusted), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.config.locationTrusted), cipherKey));
 		}
 	}
 	if (body.config.dnsServer) {
 		rawColumn += "dnsServer, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.config.dnsServer), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.config.dnsServer), cipherKey));
 	}
 	if (body.config.dohUrl) {
 		rawColumn += "dohUrl, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.config.dohUrl), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.config.dohUrl), cipherKey));
 	}
 	if (body.config.dohInsecure) {
 		rawColumn += "dohInsecure, ";
@@ -583,9 +537,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	if (body.config.refererUrl) {
 		rawColumn += "refererUrl, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(body.config.refererUrl, cipherKey)
-		);
+		rawBindings.push(enc(body.config.refererUrl, cipherKey));
 	}
 	if (body.config.keepAliveDuration != 30) {
 		rawColumn += "keepAliveDuration, ";
@@ -595,9 +547,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	if (body.config.resolve) {
 		rawColumn += "resolve, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.config.resolve), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.config.resolve), cipherKey));
 	}
 	// IP version
 	rawColumn += "ipVersion, ";
@@ -608,9 +558,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		rawColumn += "hsts, ";
 		rawValues += "?, ";
 		if (typeof body.config.hsts === "string") {
-			rawBindings.push(
-				enc(JSON.stringify(body.config.hsts), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.config.hsts), cipherKey));
 		} else {
 			rawBindings.push(1);
 		}
@@ -633,9 +581,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	if (body.config.haProxyClientIp) {
 		rawColumn += "haProxyClientIp, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(body.config.haProxyClientIp, cipherKey)
-		);
+		rawBindings.push(enc(body.config.haProxyClientIp, cipherKey));
 	}
 	if (body.config.haProxyProtocol) {
 		rawColumn += "haProxyClientIp, ";
@@ -645,9 +591,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	if (body.config.proxy) {
 		rawColumn += "proxy, ";
 		rawValues += "?, ";
-		rawBindings.push(
-			enc(JSON.stringify(body.config.proxy), cipherKey)
-		);
+		rawBindings.push(enc(JSON.stringify(body.config.proxy), cipherKey));
 		if (body.config.proxyHttpVersion) {
 			rawColumn += "proxyHttpVersion, ";
 			rawValues += "?, ";
@@ -656,30 +600,22 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		if (body.config.proxyAuthBasic) {
 			rawColumn += "proxyAuthBasic, ";
 			rawValues += "?, ";
-			rawBindings.push(
-				enc(JSON.stringify(body.config.proxyAuthBasic), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.config.proxyAuthBasic), cipherKey));
 		}
 		if (body.config.proxyAuthDigest) {
 			rawColumn += "proxyAuthDigest, ";
 			rawValues += "?, ";
-			rawBindings.push(
-				enc(JSON.stringify(body.config.proxyAuthDigest), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.config.proxyAuthDigest), cipherKey));
 		}
 		if (body.config.proxyAuthNtlm) {
 			rawColumn += "proxyAuthNtlm, ";
 			rawValues += "?, ";
-			rawBindings.push(
-				enc(JSON.stringify(body.config.proxyAuthNtlm), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.config.proxyAuthNtlm), cipherKey));
 		}
 		if (body.config.proxyHeaders) {
 			rawColumn += "proxyHeaders, ";
 			rawValues += "?, ";
-			rawBindings.push(
-				enc(JSON.stringify(body.config.proxyHeaders), cipherKey)
-			);
+			rawBindings.push(enc(JSON.stringify(body.config.proxyHeaders), cipherKey));
 		}
 		if (body.config.proxyInsecure) {
 			rawColumn += "proxyInsecure, ";
@@ -696,20 +632,15 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	rawColumn = rawColumn.substring(0, rawColumn.length - 2) + ")";
 	rawValues = rawValues.substring(0, rawValues.length - 2) + ")";
 	//
-	const metadata = !!body.metadata
-		? enc(JSON.stringify(body.metadata), cipherKey)
-		: null;
+	const metadata = !!body.metadata ? enc(JSON.stringify(body.metadata), cipherKey) : null;
 	tasksDb.transaction(() => {
-		tasksDb.run(`
+		tasksDb.run(
+			`
 			INSERT INTO queue (id, ownerId, createdAt, estimateExecutionAt, metadata)
 			VALUES (?1, ?2, ?3, ?4, ?5)
-		`, [
-			queueId,
-			ownerId,
-			todayAt,
-			estimateExecutionAt,
-			metadata
-		]);
+		`,
+			[queueId, ownerId, todayAt, estimateExecutionAt, metadata]
+		);
 		tasksDb.run(rawColumn + " " + rawValues, rawBindings);
 	})();
 	//
@@ -734,151 +665,166 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 		SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4
 		WHERE id = ?5
 	`);
-	dueTime = typeof dueTime === "number"
-		? addMilliseconds(dueTime, -1).getTime()
-		: addMilliseconds(dueTime, -1);
+	dueTime = typeof dueTime === "number" ? addMilliseconds(dueTime, -1).getTime() : addMilliseconds(dueTime, -1);
 	subscriptionManager.add(
 		queueId,
-		timer(dueTime).pipe(
-			expand((_, i) => defer(() => connectivity()).pipe(
-				tap(connectivity => {
-					if (env.LOG == "1") {
-						if (connectivity == "ONLINE") {
-							logInfo("Connectivity online");
-						} else {
-							logWarn("Connectivity offline");
-						}
-					}
-				}),
-				delayWhen(() => i == 0 ? timer(0) : timer(5000))
-			)),
-			filter(connectivity => connectivity == "ONLINE"),
-			take(1),
-			exhaustMap(() => {
-				let additionalHeaders = { "X-Tasks-Queue-Id": queueId } as RecordString;
-				return defer(() => http(body, additionalHeaders)).pipe(
-					map(res => {
-						if (res.data) {
-							return { ...res, data: enc(res.data, cipherKeyGen(queueId)) };
-						}
-						return res;
-					}),
-					tap({
-						next(res) {
-							httpId = res.id;
-						},
-						error(err: CurlHttpResponse) {
-							httpId = err.id;
-						}
-					}),
-					catchError((err: CurlHttpResponse) => {
-						if (err.data) {
-							err.data = enc(err.data, cipherKeyGen(queueId));
-						}
-						const ignore = body.config.ignoreStatusCode.some(code => code == err.status);
-						if (ignore) {
-							return of(err);
-						}
-						return throwError(() => err);
-					}),
-					retry({
-						count: body.config.retry,
-						delay(error: CurlHttpResponse) {
-							let retryDueTime = 0 as number | Date;
-							let estimateNextRetryAt = 0;
-							const retryingAt = new Date().getTime();
-							const stmtRetryCount = tasksDb.prepare<Pick<ConfigTable, "retryCount" | "retryLimit">, [number, string]>(`
+		timer(dueTime)
+			.pipe(
+				expand((_, i) =>
+					defer(() => connectivity()).pipe(
+						tap((connectivity) => {
+							if (env.LOG == "1") {
+								if (connectivity == "ONLINE") {
+									logInfo("Connectivity online");
+								} else {
+									logWarn("Connectivity offline");
+								}
+							}
+						}),
+						delayWhen(() => (i == 0 ? timer(0) : timer(5000)))
+					)
+				),
+				filter((connectivity) => connectivity == "ONLINE"),
+				take(1),
+				exhaustMap(() => {
+					let additionalHeaders = { "X-Tasks-Queue-Id": queueId } as RecordString;
+					return defer(() => http(body, additionalHeaders)).pipe(
+						map((res) => {
+							if (res.data) {
+								return { ...res, data: enc(res.data, cipherKeyGen(queueId)) };
+							}
+							return res;
+						}),
+						tap({
+							next(res) {
+								httpId = res.id;
+							},
+							error(err: CurlHttpResponse) {
+								httpId = err.id;
+							}
+						}),
+						catchError((err: CurlHttpResponse) => {
+							if (err.data) {
+								err.data = enc(err.data, cipherKeyGen(queueId));
+							}
+							const ignore = body.config.ignoreStatusCode.some((code) => code == err.status);
+							if (ignore) {
+								return of(err);
+							}
+							return throwError(() => err);
+						}),
+						retry({
+							count: body.config.retry,
+							delay(error: CurlHttpResponse) {
+								let retryDueTime = 0 as number | Date;
+								let estimateNextRetryAt = 0;
+								const retryingAt = new Date().getTime();
+								const stmtRetryCount = tasksDb.prepare<
+									Pick<ConfigTable, "retryCount" | "retryLimit">,
+									[number, string]
+								>(`
 								UPDATE config
 								SET retrying = ?1
 								WHERE id = ?2
 								RETURNING retryCount, retryLimit
 							`);
-							const { retryCount, retryLimit } = stmtRetryCount.get(1, queueId)!;
-							if (body.config.retryAt) {
-								retryDueTime = new Date(body.config.retryAt);
-								estimateNextRetryAt = new Date(body.config.retryAt).getTime();
-							} else {
-								retryDueTime = body.config.retryExponential
-									? body.config.retryInterval * retryCount
-									: body.config.retryInterval;
-								estimateNextRetryAt = addMilliseconds(retryingAt, retryDueTime).getTime();
-							}
-							body.config.timeoutAt = undefined;
-							additionalHeaders = {
-								...additionalHeaders,
-								"X-Tasks-Retry-Count": retryCount.toString(),
-								"X-Tasks-Retry-Limit": retryLimit.toString(),
-								"X-Tasks-Estimate-Next-Retry-At": estimateNextRetryAt.toString()
-							};
-							const stmtQueueError = tasksDb.prepare<void, [number, string, string]>(`
+								const { retryCount, retryLimit } = stmtRetryCount.get(1, queueId)!;
+								if (body.config.retryAt) {
+									retryDueTime = new Date(body.config.retryAt);
+									estimateNextRetryAt = new Date(body.config.retryAt).getTime();
+								} else {
+									retryDueTime = body.config.retryExponential
+										? body.config.retryInterval * retryCount
+										: body.config.retryInterval;
+									estimateNextRetryAt = addMilliseconds(retryingAt, retryDueTime).getTime();
+								}
+								body.config.timeoutAt = undefined;
+								additionalHeaders = {
+									...additionalHeaders,
+									"X-Tasks-Retry-Count": retryCount.toString(),
+									"X-Tasks-Retry-Limit": retryLimit.toString(),
+									"X-Tasks-Estimate-Next-Retry-At": estimateNextRetryAt.toString()
+								};
+								const stmtQueueError = tasksDb.prepare<void, [number, string, string]>(`
 								UPDATE queue
 								SET statusCode = ?1, response = ?2
 								WHERE id = ?3
 							`);
-							const stmtRetryCountError = tasksDb.prepare<void, [string, number, string]>(`
+								const stmtRetryCountError = tasksDb.prepare<void, [string, number, string]>(`
 								UPDATE config
 								SET headers = ?1, estimateNextRetryAt = ?2
 								WHERE id = ?3
 							`);
-							tasksDb.transaction(() => {
-								stmtQueueError.run(
-									error.status,
-									error.data!,
-									queueId
+								tasksDb.transaction(() => {
+									stmtQueueError.run(error.status, error.data!, queueId);
+									stmtRetryCountError.run(
+										enc(JSON.stringify(additionalHeaders), cipherKeyGen(queueId)),
+										estimateNextRetryAt,
+										queueId
+									);
+								})();
+								if (env.LOG == "1") {
+									logWarn(
+										"Task",
+										queueId,
+										"retrying",
+										JSON.stringify({
+											count: retryCount,
+											estimateNextRetryAt: new Date(estimateNextRetryAt).toLocaleString(),
+											statusCode: error.status
+										})
+									);
+								}
+								return timer(retryDueTime).pipe(
+									finalize(() => {
+										stmtRetryCount.finalize();
+										stmtQueueError.finalize();
+										stmtRetryCountError.finalize();
+									})
 								);
-								stmtRetryCountError.run(
-									enc(JSON.stringify(additionalHeaders), cipherKeyGen(queueId)),
-									estimateNextRetryAt,
-									queueId
-								);
-							})();
-							if (env.LOG == "1") {
-								logWarn("Task", queueId, "retrying", JSON.stringify({
-									count: retryCount,
-									estimateNextRetryAt: new Date(estimateNextRetryAt).toLocaleString(),
-									statusCode: error.status
-								}));
 							}
-							return timer(retryDueTime).pipe(
-                                finalize(() => {
-                                    stmtRetryCount.finalize();
-                                    stmtQueueError.finalize();
-                                    stmtRetryCountError.finalize();
-                                })
-                            );
-						}
-					})
-				);
-			}),
-			finalize(() => {
-				rmSync("/tmp/" + httpId, {
-					recursive: true,
-					force: true
-				});
-				subscriptionManager.unsubscribe(queueId);
-                stmtQueue.finalize();
+						})
+					);
+				}),
+				finalize(() => {
+					rmSync("/tmp/" + httpId, {
+						recursive: true,
+						force: true
+					});
+					subscriptionManager.unsubscribe(queueId);
+					stmtQueue.finalize();
+				})
+			)
+			.subscribe({
+				next(res) {
+					stmtQueue.run(res.state, res.status, res.data, new Date().getTime(), queueId);
+					if (env.LOG == "1") {
+						logInfo(
+							"Task",
+							queueId,
+							"done",
+							JSON.stringify({
+								state: res.state,
+								statusCode: res.status
+							})
+						);
+					}
+				},
+				error(err: CurlHttpResponse) {
+					stmtQueue.run("ERROR", err.status, err.data, new Date().getTime(), queueId);
+					if (env.LOG == "1") {
+						logError(
+							"Task",
+							queueId,
+							"error",
+							JSON.stringify({
+								state: err.state,
+								statusCode: err.status
+							})
+						);
+					}
+				}
 			})
-		)
-		.subscribe({
-			next(res) {
-				stmtQueue.run(res.state, res.status, res.data, new Date().getTime(), queueId);
-				if (env.LOG == "1") {
-					logInfo("Task", queueId, "done", JSON.stringify({
-						state: res.state,
-						statusCode: res.status
-					}));
-				}
-			},
-			error(err: CurlHttpResponse) {
-				stmtQueue.run("ERROR", err.status, err.data, new Date().getTime(), queueId);
-				if (env.LOG == "1") {
-					logError("Task", queueId, "error", JSON.stringify({
-						state: err.state,
-						statusCode: err.status
-					}));
-				}
-			}
-		})
 	);
 }
 
@@ -923,32 +869,20 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			return state;
 		}
 		return undefined;
-	}
+	};
 	// Initialize body
 	const body: TaskRequest = {
 		httpRequest: {
 			url: dec(q.url, cipherKey),
 			method: q.method,
 			data: parseData(),
-			query: !!q.query
-				? JSON.parse(dec(q.query, cipherKey))
-				: undefined,
+			query: !!q.query ? JSON.parse(dec(q.query, cipherKey)) : undefined,
 			cookie: parseCookie(),
-			headers: !!q.headers
-				? JSON.parse(dec(q.headers, cipherKey))
-				: undefined,
-			authBasic: !!q.authBasic
-				? JSON.parse(dec(q.authBasic, cipherKey))
-				: undefined,
-			authDigest: !!q.authDigest
-				? JSON.parse(dec(q.authDigest, cipherKey))
-				: undefined,
-			authNtlm: !!q.authNtlm
-				? JSON.parse(dec(q.authNtlm, cipherKey))
-				: undefined,
-			authAwsSigv4: !!q.authAwsSigv4
-				? JSON.parse(dec(q.authAwsSigv4, cipherKey))
-				: undefined
+			headers: !!q.headers ? JSON.parse(dec(q.headers, cipherKey)) : undefined,
+			authBasic: !!q.authBasic ? JSON.parse(dec(q.authBasic, cipherKey)) : undefined,
+			authDigest: !!q.authDigest ? JSON.parse(dec(q.authDigest, cipherKey)) : undefined,
+			authNtlm: !!q.authNtlm ? JSON.parse(dec(q.authNtlm, cipherKey)) : undefined,
+			authAwsSigv4: !!q.authAwsSigv4 ? JSON.parse(dec(q.authAwsSigv4, cipherKey)) : undefined
 		},
 		config: {
 			executionDelay: q.executionDelay,
@@ -961,77 +895,43 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			ignoreStatusCode: JSON.parse(q.ignoreStatusCode),
 			timeout: q.timeout,
 			timeoutAt: parseDate(q.timeoutAt),
-			ca: !!q.ca
-				? JSON.parse(dec(q.ca, cipherKey))
-				: undefined,
-			cert: !!q.cert
-				? JSON.parse(dec(q.cert, cipherKey))
-				: undefined,
-			certType: !!q.certType
-				? dec(q.certType, cipherKey) as Config["certType"]
-				: undefined,
+			ca: !!q.ca ? JSON.parse(dec(q.ca, cipherKey)) : undefined,
+			cert: !!q.cert ? JSON.parse(dec(q.cert, cipherKey)) : undefined,
+			certType: !!q.certType ? (dec(q.certType, cipherKey) as Config["certType"]) : undefined,
 			certStatus: !!q.certStatus,
-			key: !!q.key
-				? dec(q.key, cipherKey)
-				: undefined,
-			keyType: !!q.keyType
-				? dec(q.keyType, cipherKey) as Config["keyType"]
-				: undefined,
+			key: !!q.key ? dec(q.key, cipherKey) : undefined,
+			keyType: !!q.keyType ? (dec(q.keyType, cipherKey) as Config["keyType"]) : undefined,
 			userAgent: q.userAgent,
 			location: !!q.location,
-			locationTrusted: !!q.locationTrusted
-				? JSON.parse(dec(q.locationTrusted, cipherKey))
-				: undefined,
+			locationTrusted: !!q.locationTrusted ? JSON.parse(dec(q.locationTrusted, cipherKey)) : undefined,
 			proto: (q.proto as Config["proto"]) ?? undefined,
 			protoRedirect: (q.protoRedirect as Config["protoRedirect"]) ?? undefined,
-			dnsServer: !!q.dnsServer
-				? JSON.parse(dec(q.dnsServer, cipherKey))
-				: undefined,
-			dohUrl: !!q.dohUrl
-				? dec(q.dohUrl, cipherKey)
-				: undefined,
+			dnsServer: !!q.dnsServer ? JSON.parse(dec(q.dnsServer, cipherKey)) : undefined,
+			dohUrl: !!q.dohUrl ? dec(q.dohUrl, cipherKey) : undefined,
 			dohInsecure: !!q.dohInsecure,
 			httpVersion: q.httpVersion,
 			insecure: !!q.insecure,
-			refererUrl: !!q.refererUrl
-				? dec(q.refererUrl, cipherKey)
-				: "AUTO",
+			refererUrl: !!q.refererUrl ? dec(q.refererUrl, cipherKey) : "AUTO",
 			redirectAttempts: q.redirectAttempts,
 			keepAliveDuration: q.keepAliveDuration,
-			resolve: !!q.resolve
-				? JSON.parse(dec(q.resolve, cipherKey))
-				: undefined,
+			resolve: !!q.resolve ? JSON.parse(dec(q.resolve, cipherKey)) : undefined,
 			ipVersion: q.ipVersion,
 			hsts: parseHsts(),
 			sessionId: !!q.sessionId,
 			tlsVersion: (q.tlsVersion as Config["tlsVersion"]) ?? undefined,
 			tlsMaxVersion: (q.tlsMaxVersion as Config["tlsMaxVersion"]) ?? undefined,
-			haProxyClientIp: !!q.haProxyClientIp
-				? dec(q.haProxyClientIp, cipherKey)
-				: undefined,
+			haProxyClientIp: !!q.haProxyClientIp ? dec(q.haProxyClientIp, cipherKey) : undefined,
 			haProxyProtocol: !!q.haProxyProtocol,
-			proxy: !!q.proxy
-				? JSON.parse(dec(q.proxy, cipherKey))
-				: undefined,
-			proxyAuthBasic: !!q.proxyAuthBasic
-				? JSON.parse(dec(q.proxyAuthBasic, cipherKey))
-				: undefined,
-			proxyAuthDigest: !!q.proxyAuthDigest
-				? JSON.parse(dec(q.proxyAuthDigest, cipherKey))
-				: undefined,
-			proxyAuthNtlm: !!q.proxyAuthNtlm
-				? JSON.parse(dec(q.proxyAuthNtlm, cipherKey))
-				: undefined,
-			proxyHeaders: !!q.proxyAuthBasic
-				? JSON.parse(dec(q.proxyAuthBasic, cipherKey))
-				: undefined,
+			proxy: !!q.proxy ? JSON.parse(dec(q.proxy, cipherKey)) : undefined,
+			proxyAuthBasic: !!q.proxyAuthBasic ? JSON.parse(dec(q.proxyAuthBasic, cipherKey)) : undefined,
+			proxyAuthDigest: !!q.proxyAuthDigest ? JSON.parse(dec(q.proxyAuthDigest, cipherKey)) : undefined,
+			proxyAuthNtlm: !!q.proxyAuthNtlm ? JSON.parse(dec(q.proxyAuthNtlm, cipherKey)) : undefined,
+			proxyHeaders: !!q.proxyAuthBasic ? JSON.parse(dec(q.proxyAuthBasic, cipherKey)) : undefined,
 			proxyHttpVersion: (q.proxyHttpVersion as Config["proxyHttpVersion"]) ?? undefined,
 			proxyInsecure: !!q.proxyInsecure,
 			traceResponseData: !!q.traceResponseData
 		},
-		metadata: !!q.metadata
-			? JSON.parse(dec(q.metadata, cipherKey))
-			: undefined
+		metadata: !!q.metadata ? JSON.parse(dec(q.metadata, cipherKey)) : undefined
 	};
 	if (q.executeAt) {
 		const executeAt = parseDate(q.executeAt)!;
@@ -1069,11 +969,9 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			return new Date(body.config.executeAt);
 		}
 		return body.config.executionDelay;
-	}
+	};
 	const dueTime = parseDueTime();
-	const estimateExecutionAt = typeof dueTime === "number"
-		? addMilliseconds(resumeAt, dueTime).getTime()
-		: dueTime.getTime();
+	const estimateExecutionAt = typeof dueTime === "number" ? addMilliseconds(resumeAt, dueTime).getTime() : dueTime.getTime();
 	return {
 		queueId: q.id,
 		ownerId: q.ownerId,
@@ -1105,7 +1003,7 @@ function reschedule(): void {
 		runMessageEmitter();
 		backupJob.stop();
 	}
-	const raw = tasksDb.query<{ count: number, lastRecordAt: number }, TaskState>(`
+	const raw = tasksDb.query<{ count: number; lastRecordAt: number }, TaskState>(`
 		SELECT
 		(SELECT COUNT(*) FROM queue WHERE state = ?1) AS count,
 		(SELECT lastRecordAt FROM timeframe WHERE id = 1 LIMIT 1) AS lastRecordAt
@@ -1146,7 +1044,7 @@ function reschedule(): void {
 					const queue = resume(queueHistory, lastRecordAt);
 					queuesResumable.push(queue);
 				}
-			};
+			}
 			tasksDb.run("UPDATE timeframe SET data = ? WHERE id = 1", [
 				Buffer.from(JSON.stringify(queuesResumable)).toString("base64")
 			]);

@@ -19,7 +19,6 @@ type TaskRequest = z.infer<typeof taskSchema>;
 type Queue = Omit<QueueTable, "ownerId" | "metadata"> & { metadata: RecordString | null };
 
 describe("TEST QUEUE", () => {
-
 	logWarn("If an error occurs during this test, ensure your internet connection is stable");
 
 	let ownerId = "";
@@ -29,7 +28,9 @@ describe("TEST QUEUE", () => {
 	const todayAt = new Date().getTime();
 
 	const stmtQueue = tasksDb.prepare<QueueTable, string>("SELECT * FROM queue WHERE id = ?");
-	const stmtRetryCount = tasksDb.prepare<Pick<ConfigTable, "retryCount">, string>("SELECT retryCount FROM config WHERE id = ?");
+	const stmtRetryCount = tasksDb.prepare<Pick<ConfigTable, "retryCount">, string>(
+		"SELECT retryCount FROM config WHERE id = ?"
+	);
 
 	const api = new Hono<Var>();
 
@@ -70,7 +71,7 @@ describe("TEST QUEUE", () => {
 
 	describe("GET /v1/queues", () => {
 		describe("", () => {
-			it("should successfully get queues with default query", async () => {
+			it("should successfully get queues with default query params", async () => {
 				const query = queuesQuerySchema.safeParse({}).data!;
 				expect(query).toStrictEqual({
 					limit: 10,
@@ -78,17 +79,60 @@ describe("TEST QUEUE", () => {
 					order: "createdAt",
 					sort: "asc"
 				});
-				const res = await api.request("/v1/queues", {
+				const urlSp = new URLSearchParams();
+				urlSp.append("limit", query.limit.toString());
+				urlSp.append("offset", query.offset.toString());
+				urlSp.append("order", query.order);
+				urlSp.append("sort", query.sort);
+				const res = await api.request("/v1/queues?" + urlSp.toString(), {
 					method: "GET",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queues = await res.json() as Queue[];
+				const queues = (await res.json()) as Queue[];
+				expect(res.status).toBe(200);
+				expect(queues).toStrictEqual([]);
+			});
+		});
+
+		describe("", () => {
+			it("should successfully get queues with custom query params", async () => {
+				const query = queuesQuerySchema.safeParse({
+					limit: "20",
+					offset: "0",
+					order: "createdAt",
+					sort: "asc",
+					state: "SUCCESS"
+				}).data!;
+				expect(query).toStrictEqual({
+					limit: 20,
+					offset: 0,
+					order: "createdAt",
+					sort: "asc",
+					state: "SUCCESS"
+				});
+				const urlSp = new URLSearchParams();
+				urlSp.append("limit", query.limit.toString());
+				urlSp.append("offset", query.offset.toString());
+				urlSp.append("order", query.order);
+				urlSp.append("sort", query.sort);
+				urlSp.append("state", query.state!);
+				const res = await api.request("/v1/queues?" + urlSp.toString(), {
+					method: "GET",
+					cache: "no-cache",
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				const queues = (await res.json()) as Queue[];
 				expect(res.status).toBe(200);
 				expect(queues).toStrictEqual([]);
 			});
@@ -100,7 +144,7 @@ describe("TEST QUEUE", () => {
 					method: "GET",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -127,13 +171,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 			});
 			it("should successfully get queue", async () => {
@@ -141,13 +185,13 @@ describe("TEST QUEUE", () => {
 					method: "GET",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(200);
 			});
 		});
@@ -158,13 +202,13 @@ describe("TEST QUEUE", () => {
 					method: "GET",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -176,13 +220,13 @@ describe("TEST QUEUE", () => {
 					method: "GET",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(404);
 			});
 		});
@@ -203,13 +247,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(201);
 				expect(queue.state).toBe("RUNNING");
 				expect(queue.response).toBeNull();
@@ -238,13 +282,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(201);
 				expect(queue.state).toBe("RUNNING");
 				expect(queue.response).toBeNull();
@@ -274,13 +318,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(201);
 				expect(queue.state).toBe("RUNNING");
 				expect(queue.response).toBeNull();
@@ -303,7 +347,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -320,10 +364,12 @@ describe("TEST QUEUE", () => {
 					httpRequest: {
 						url: env.DUMMY_TARGET_URL,
 						method: "POST",
-						data: [{
-							name: "label",
-							value: "Test multipart/form-data"
-						}]
+						data: [
+							{
+								name: "label",
+								value: "Test multipart/form-data"
+							}
+						]
 					}
 				};
 				const res = await api.request("/v1/queues/register", {
@@ -331,7 +377,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -367,7 +413,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -384,10 +430,12 @@ describe("TEST QUEUE", () => {
 					httpRequest: {
 						url: env.DUMMY_TARGET_URL,
 						method: "POST",
-						cookie: [{
-							name: "name",
-							value: "value"
-						}]
+						cookie: [
+							{
+								name: "name",
+								value: "value"
+							}
+						]
 					}
 				};
 				const res = await api.request("/v1/queues/register", {
@@ -395,7 +443,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -422,7 +470,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -449,7 +497,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -477,14 +525,14 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
 				expect(res.status).toBe(201);
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(queue.metadata).toStrictEqual({
 					username: "test",
 					tag: "checkout-notification"
@@ -509,13 +557,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(201);
 				await sleep(1000);
 				const currentQueue = stmtQueue.get(queue.id)!;
@@ -542,13 +590,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(201);
 				await sleep(3000);
 				const currentQueue = stmtQueue.get(queue.id);
@@ -578,13 +626,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(201);
 				await sleep(5000);
 				const currentQueue = stmtQueue.get(queue.id);
@@ -614,7 +662,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -642,7 +690,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -669,7 +717,7 @@ describe("TEST QUEUE", () => {
 				cache: "no-cache",
 				body: JSON.stringify(body),
 				headers: new Headers({
-					"Authorization": "Bearer " + key,
+					Authorization: "Bearer " + key,
 					"Cache-Control": "no-cache, no-store, must-revalidate",
 					"Content-Type": "application/json",
 					"X-Tasks-Owner-Id": ownerId
@@ -698,7 +746,7 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -732,13 +780,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 			});
 			it("should successfully pause a task", async () => {
@@ -746,13 +794,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as { status: "Done" };
+				const queue = (await res.json()) as { status: "Done" };
 				expect(res.status).toBe(200);
 				expect(queue).toStrictEqual({ status: "Done" });
 				const currentQueue = stmtQueue.get(queueId)!;
@@ -763,7 +811,7 @@ describe("TEST QUEUE", () => {
 					method: "DELETE",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -778,13 +826,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -795,13 +843,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
@@ -826,19 +874,19 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 				await api.request("/v1/queues/" + queueId + "/pause", {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -850,13 +898,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(200);
 				expect(queue.state).toBe("RUNNING");
 			});
@@ -865,7 +913,7 @@ describe("TEST QUEUE", () => {
 					method: "DELETE",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -893,19 +941,19 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 				await api.request("/v1/queues/" + queueId + "/pause", {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -918,13 +966,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(200);
 				expect(queue.state).toBe("RUNNING");
 				await sleep(1000);
@@ -937,7 +985,7 @@ describe("TEST QUEUE", () => {
 					method: "DELETE",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -952,13 +1000,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -969,13 +1017,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
@@ -1000,13 +1048,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 			});
 			it("should successfully revoke a task", async () => {
@@ -1014,13 +1062,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as { status: "Done" };
+				const queue = (await res.json()) as { status: "Done" };
 				expect(res.status).toBe(200);
 				expect(queue).toStrictEqual({ status: "Done" });
 				const currentQueue = stmtQueue.get(queueId)!;
@@ -1045,20 +1093,20 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 				await api.request("/v1/queues/" + queueId + "/pause", {
 					method: "PATCH",
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -1070,13 +1118,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as { status: "Done" };
+				const queue = (await res.json()) as { status: "Done" };
 				expect(res.status).toBe(200);
 				expect(queue).toStrictEqual({ status: "Done" });
 				const currentQueue = stmtQueue.get(queueId)!;
@@ -1094,13 +1142,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -1111,13 +1159,13 @@ describe("TEST QUEUE", () => {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
@@ -1142,13 +1190,13 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 			});
 			it("should successfully delete while it is running", async () => {
@@ -1156,13 +1204,13 @@ describe("TEST QUEUE", () => {
 					method: "DELETE",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as { status: "Done" };
+				const queue = (await res.json()) as { status: "Done" };
 				expect(res.status).toBe(200);
 				expect(queue).toStrictEqual({ status: "Done" });
 				const currentQueue = stmtQueue.get(queueId);
@@ -1187,19 +1235,19 @@ describe("TEST QUEUE", () => {
 					cache: "no-cache",
 					body: JSON.stringify(body),
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				queueId = queue.id;
 				await api.request("/v1/queues/" + queueId + "/pause", {
 					method: "PATCH",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
@@ -1211,13 +1259,13 @@ describe("TEST QUEUE", () => {
 					method: "DELETE",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as { status: "Done" };
+				const queue = (await res.json()) as { status: "Done" };
 				expect(res.status).toBe(200);
 				expect(queue).toStrictEqual({ status: "Done" });
 				const currentQueue = stmtQueue.get(queueId);
@@ -1231,13 +1279,13 @@ describe("TEST QUEUE", () => {
 					method: "DELETE",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -1248,13 +1296,13 @@ describe("TEST QUEUE", () => {
 					method: "DELETE",
 					cache: "no-cache",
 					headers: new Headers({
-						"Authorization": "Bearer " + key,
+						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = await res.json() as Queue;
+				const queue = (await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
