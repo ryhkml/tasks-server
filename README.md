@@ -17,6 +17,7 @@ Tasks Server is an on-premise task management service designed to execute and di
 1. HTTP requests with selected http curl options
 2. Configurable retry mechanism
 3. Custom scheduling options
+4. Automatically reschedules tasks if the server shuts down unexpectedly
 
 There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
