@@ -38,7 +38,14 @@ export const queuesQuerySchema = z.strictObject({
 	order: z
 		.optional(z.union([z.literal("createdAt"), z.literal("estimateEndAt"), z.literal("estimateExecutionAt")]))
 		.default("createdAt"),
-	sort: z.optional(z.union([z.literal("asc"), z.literal("desc")])).default("asc"),
+	sort: z
+		.optional(
+			z
+				.string()
+				.toLowerCase()
+				.pipe(z.union([z.literal("asc"), z.literal("desc")]))
+		)
+		.default("asc"),
 	state: z.optional(
 		z
 			.string()
