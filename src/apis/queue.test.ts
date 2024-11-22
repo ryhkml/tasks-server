@@ -191,7 +191,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(200);
 			});
 		});
@@ -208,7 +208,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -226,7 +226,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(404);
 			});
 		});
@@ -832,7 +832,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -849,7 +849,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
@@ -1006,7 +1006,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -1023,7 +1023,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
@@ -1148,7 +1148,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -1165,7 +1165,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
@@ -1285,7 +1285,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(400);
 			});
 		});
@@ -1302,7 +1302,7 @@ describe("TEST QUEUE", () => {
 						"X-Tasks-Owner-Id": ownerId
 					})
 				});
-				const queue = (await res.json()) as Queue;
+				(await res.json()) as Queue;
 				expect(res.status).toBe(422);
 			});
 		});
