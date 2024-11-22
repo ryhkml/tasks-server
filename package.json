@@ -5,6 +5,11 @@
 	"maintainers": [
 		"Reyhan Kamil"
 	],
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/ryhkml/tasks-server.git"
+	},
+	"bugs": "https://github.com/ryhkml/tasks-server/issues",
 	"license": "MIT",
 	"private": true,
 	"scripts": {
