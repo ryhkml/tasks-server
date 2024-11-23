@@ -132,7 +132,17 @@ To make it base64 content encoding, you can use the shell command
 cat cert.pem | base64 -w 0
 ```
 
-An example of requesting a task
+An example of requesting a task:
+
+```sh
+curl -X POST http://localhost:9420/v1/queues/register \
+    -d "..." \
+    -H "Authorization: Bearer <SECRET_KEY>" \
+    -H "Content-Type: application/json" \
+    -H "X-Tasks-Owner-Id: <OWNER_ID>"
+```
+
+Payload:
 
 ```json
 {
@@ -149,7 +159,7 @@ An example of requesting a task
 }
 ```
 
-The response
+The response:
 
 ```json
 {
@@ -159,7 +169,8 @@ The response
     "statusCode": 0,
     "estimateEndAt": 0,
     "estimateExecutionAt": "...",
-    "response": null
+    "response": null,
+    "metadata": "..."
 }
 ```
 
