@@ -47,10 +47,18 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
 ## Getting Started
 
-Make sure you have [bun](https://bun.sh/docs/installation) and [curl](https://curl.se/download.html) installed, run:
+Make sure you have [bun](https://bun.sh/docs/installation) and [curl](https://curl.se/download.html) installed. Execute the `sh` or `bash` commands demonstrated below.
+
+To install dependencies, run:
 
 ```sh
-./install.sh
+sh install.sh
+```
+
+To update dependencies, run:
+
+```sh
+sh update.sh
 ```
 
 ## Development
