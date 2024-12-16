@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 set -e
 
 bun -v 1>/dev/null
@@ -21,4 +19,4 @@ echo ".env.production file has been created"
 bun install --frozen-lockfile
 bun --env-file=.env.development run init-db.ts
 
-echo "Done"
+echo "Installation complete"
