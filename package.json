@@ -24,12 +24,12 @@
 		"@hono/zod-validator": "^0.2.2",
 		"croner": "^8.1.2",
 		"date-fns": "^4.1.0",
-		"hono": "^4.6.12",
+		"hono": "^4.6.14",
 		"nanoid": "^5.0.9",
 		"rxjs": "^7.8.1",
 		"tar": "^7.4.3",
 		"ulid": "^2.3.0",
-		"zod": "^3.23.8"
+		"zod": "^3.24.1"
 	},
 	"devDependencies": {
 		"@types/bun": "latest"
