@@ -255,3 +255,12 @@ BACKUP_METHOD_SQLITE="LOCAL"
     - Storage Object User
     - Storage Object Viewer
 7. Click save
+
+## TODO
+
+-   [ ] Create documentation
+-   [ ] Create an API for editing queue
+-   [ ] Create an API to get queue configuration
+-   [x] Backup SQLite database
+-   [x] Create a mechanism to reschedule tasks if the server unexpected shutdown
+-   [x] Create a [cluster](https://bun.sh/guides/http/cluster) of HTTP server (Linux)
