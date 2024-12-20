@@ -75,7 +75,11 @@ To start the test server, run:
 
 ```sh
 bun run test
-# Or test specifically the file name
+```
+
+Or, test specifically by file name
+
+```sh
 bun --env-file=.env.test test <FILENAME>
 ```
 
@@ -108,7 +112,7 @@ You can use absolute path or current working path, for example:
 .database/tasks.db
 ```
 
-## APIs
+## API
 
 ### Owner
 
@@ -131,14 +135,6 @@ A queue is a collection of tasks scheduled for later execution. Queues can be pa
 -   ✅ `PATCH /v1/queues/:id/resume`
 -   ✅ `PATCH /v1/queues/:id/revoke`
 -   ✅ `POST /v1/queues/register`
-
-❌ ## Documentation
-
-To make it base64 content encoding, you can use the shell command
-
-```sh
-cat cert.pem | base64 -w 0
-```
 
 An example of requesting a task:
 
@@ -224,18 +220,87 @@ To specify a particular time zone, you can use the specific time zone offset you
 
 `+07:00` indicates a time zone offset of +7 hours from **Coordinated Universal Time** (UTC). This means the time is 7 hours ahead of UTC.
 
-> [!WARNING]
+> [!NOTE]
 >
 > Properties ending with `At` are in UNIX time format, such as `executeAt`, `retryAt`, and `timeoutAt`. Using `retryAt` or `timeoutAt` will execute only once
 
 To ensure consistent timekeeping, configure the task server to use the UTC time zone. This can be achieved by setting the `TZ` environment variable to `UTC`.
 
+## Input File
+
+Tasks Server allows configuring custom certificates to modify the curl options [--cacert](https://curl.se/docs/manpage.html#--cacert), [--cert](https://curl.se/docs/manpage.html#-E), and [--key](https://curl.se/docs/manpage.html#--key). To add a certificate file when the Task Server is running in a host environment, use the direct path as a curl option. For example
+
+```json
+{
+    "httpRequest": {
+        "url": "https://target-service",
+        "method": "POST"
+    },
+    "config": {
+        "executeAt": "Dec 12 2012 12:12:12 +07:00 AM",
+        "ca": "/tmp/ca.crt",
+        "cert": {
+            "value": "/tmp/fullchain.pem"
+        },
+        "key": "/tmp/key.pem"
+    }
+}
+```
+
+When running the Tasks Server in a container environment, you can
+
+-   Create a volume. Just like the example above, adjust the path inside the container **or**
+-   Use base64-encoded. To make it base64-encoded, you can use command
+
+    ```sh
+    cat /tmp/ca.crt | base64 -w 0
+    ```
+
+    ```json
+    {
+        "httpRequest": {
+            "url": "https://target-service",
+            "method": "POST"
+        },
+        "config": {
+            "executeAt": "Dec 12 2012 12:12:12 +07:00 AM",
+            "ca": "base64...",
+            "cert": {
+                "value": "base64..."
+            },
+            "key": "base64..."
+        }
+    }
+    ```
+
+If there is more than one certificate, you can use multiple certificates in one file
+
+```txt
+-----BEGIN CERTIFICATE-----
+...
+...
+-----END CERTIFICATE-----
+
+-----BEGIN CERTIFICATE-----
+...
+...
+-----END CERTIFICATE-----
+```
+
 ## SQLite Backup
 
 There are two backup methods:
 
-1. **Local**. The local method copies the database file, then moves it to another directory. This method is active by default
-2. **Google Cloud Storage**. The Google Cloud Storage method uploads database files to a Google Cloud Storage. This step is highly recommended.
+-   **Local**. The local method copies the database file, then moves it to another directory. This method is active by default **or**
+-   **Google Cloud Storage**. The Google Cloud Storage method uploads database files to a Google Cloud Storage. To authenticate to Google Cloud Storage, follow the steps below.
+
+    1\. [Create a service](https://cloud.google.com/iam/docs/service-accounts-create#creating) account and do not grant any access\
+    2\. [Create a new key](https://cloud.google.com/iam/docs/keys-create-delete#iam-service-account-keys-create-console) and select the JSON format\
+    3\. Go to Google Cloud Storage, create a bucket\
+    4\. Select a bucket and click Permissions\
+    5\. In the Permissions section, click Grant Access\
+    6\. Enter the service account email, then assign roles **Storage Object User** and **Storage Object Viewer**\
+    7\. Save.
 
 You can set it via env variable
 
@@ -244,23 +309,13 @@ You can set it via env variable
 BACKUP_METHOD_SQLITE="LOCAL"
 ```
 
-### Set up authentication for Google Cloud Storage
-
-1. [Create a service](https://cloud.google.com/iam/docs/service-accounts-create#creating) account and do not grant any access, just create!
-2. [Create a new key](https://cloud.google.com/iam/docs/keys-create-delete#iam-service-account-keys-create-console) and select the JSON format
-3. Go to Google Cloud Storage, create a bucket
-4. Select a bucket and click Permissions
-5. In the Permissions section, click Grant Access
-6. Enter the service account email and assign roles:
-    - Storage Object User
-    - Storage Object Viewer
-7. Click save
-
 ## TODO
 
 -   [ ] Create documentation
--   [ ] Create an API for editing queue
--   [ ] Create an API to get queue configuration
+-   [ ] Create an API for editing task
+-   [ ] Create an API to get task configuration
 -   [x] Backup SQLite database
 -   [x] Create a mechanism to reschedule tasks if the server unexpected shutdown
--   [x] Create a [cluster](https://bun.sh/guides/http/cluster) of HTTP server (Linux)
+-   [x] Create a [cluster](https://bun.sh/guides/http/cluster) of HTTP server (Linux only)
+-   [ ] Enable test coverage configuration
+-   [ ] Ensure test coverage reaches 90% or more
