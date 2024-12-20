@@ -1,5 +1,7 @@
-import { env, fetch, password, sleep } from "bun";
+import { env, fetch, password, sleep, write } from "bun";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, setSystemTime } from "bun:test";
+
+import { rm } from "node:fs/promises";
 
 import { Hono } from "hono";
 
@@ -537,6 +539,144 @@ describe("TEST QUEUE", () => {
 					username: "test",
 					tag: "checkout-notification"
 				});
+			});
+		});
+
+		describe("", () => {
+			// Create a dummy CA
+			beforeEach(async () => {
+				await write("/tmp/ca.crt", "", { mode: 440 });
+			});
+			it("should successfully register with additional custom CA", async () => {
+				const body: TaskRequest = {
+					httpRequest: {
+						url: env.DUMMY_TARGET_URL,
+						method: "GET"
+					},
+					// @ts-expect-error
+					config: {
+						ca: "/tmp/ca.crt"
+					}
+				};
+				const res = await api.request("/v1/queues/register", {
+					method: "POST",
+					cache: "no-cache",
+					body: JSON.stringify(body),
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				expect(res.status).toBe(201);
+			});
+			afterEach(async () => {
+				await rm("/tmp/ca.crt", { force: true });
+			});
+		});
+
+		describe("", () => {
+			// Create a dummy cert
+			beforeEach(async () => {
+				await write("/tmp/fullchain.pem", "", { mode: 440 });
+			});
+			it("should successfully register with additional custom cert", async () => {
+				const body: TaskRequest = {
+					httpRequest: {
+						url: env.DUMMY_TARGET_URL,
+						method: "GET"
+					},
+					// @ts-expect-error
+					config: {
+						cert: {
+							value: "/tmp/fullchain.pem"
+						}
+					}
+				};
+				const res = await api.request("/v1/queues/register", {
+					method: "POST",
+					cache: "no-cache",
+					body: JSON.stringify(body),
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				expect(res.status).toBe(201);
+			});
+			afterEach(async () => {
+				await rm("/tmp/fullchain.pem", { force: true });
+			});
+		});
+
+		describe("", () => {
+			// Create a dummy key
+			beforeEach(async () => {
+				await write("/tmp/key.pem", "", { mode: 440 });
+			});
+			it("should successfully register with additional custom key", async () => {
+				const body: TaskRequest = {
+					httpRequest: {
+						url: env.DUMMY_TARGET_URL,
+						method: "GET"
+					},
+					// @ts-expect-error
+					config: {
+						cert: {
+							value: "/tmp/key.pem"
+						}
+					}
+				};
+				const res = await api.request("/v1/queues/register", {
+					method: "POST",
+					cache: "no-cache",
+					body: JSON.stringify(body),
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				expect(res.status).toBe(201);
+			});
+			afterEach(async () => {
+				await rm("/tmp/key.pem", { force: true });
+			});
+		});
+
+		describe("", () => {
+			it("should successfully register and ignore error status code", async () => {
+				const body: TaskRequest = {
+					httpRequest: {
+						url: env.DUMMY_TARGET_URL + "/error",
+						method: "GET"
+					},
+					// @ts-expect-error
+					config: {
+						ignoreStatusCode: [404]
+					}
+				};
+				const res = await api.request("/v1/queues/register", {
+					method: "POST",
+					cache: "no-cache",
+					body: JSON.stringify(body),
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				const queue = (await res.json()) as Queue;
+				expect(res.status).toBe(201);
+				await sleep(1000);
+				const currentQueue = stmtQueue.get(queue.id)!;
+				expect(currentQueue.state).toBe("ERROR");
+				expect(currentQueue.statusCode).toBe(404);
 			});
 		});
 

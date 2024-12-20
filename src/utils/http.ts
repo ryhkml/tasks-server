@@ -35,41 +35,48 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 	}
 	// CA
 	if (req.config.ca) {
-		if (req.config.ca.length == 1) {
-			const dataCa = Buffer.from(req.config.ca[0], "base64").toString("utf-8");
+		const split = req.config.ca.split(".");
+		if (split.length) {
+			options.push("--cacert");
+			options.push(req.config.ca);
+		} else {
+			const dataCa = Buffer.from(req.config.ca, "base64").toString("utf-8");
 			const pathCa = "/tmp/" + httpId + "/ca/ca.crt";
 			write(pathCa, dataCa, { mode: 440 });
 			options.push("--cacert");
 			options.push(pathCa);
-		} else {
-			for (let i = 0; i < req.config.ca.length; i++) {
-				const name = "ca-" + (i + 1).toString() + ".crt";
-				const dataCa = Buffer.from(req.config.ca[i], "base64").toString("utf-8");
-				const pathCa = "/tmp/" + httpId + "/cas/" + name;
-				write(pathCa, dataCa, { mode: 440 });
-			}
-			options.push("--capath");
-			options.push("/tmp/" + httpId + "/cas");
 		}
 	}
 	// Cert
 	if (req.config.cert?.value) {
-		const type = req.config.certType?.toLowerCase() || "pem";
-		const dataCert = Buffer.from(req.config.cert.value, "base64").toString("utf-8");
-		const pathCert = "/tmp/" + httpId + "/cert/cert." + type;
-		write(pathCert, dataCert, { mode: 440 });
+		let type = "pem";
+		let password = "";
+		const split = req.config.cert.value.split(".");
 		if (req.config.certType) {
+			type = req.config.certType.toLowerCase();
 			options.push("--cert-type");
 			options.push(req.config.certType);
 		}
-		options.push("--cert");
 		if (req.config.cert.password) {
-			const password = req.config.cert.password
-				.replace(/:/g, "\\:")
-				.replace(/"/g, '\\"');
-			options.push(pathCert + ":" + password);
+			password = req.config.cert.password.replace(/:/g, "\\:").replace(/"/g, '\\"');
+		}
+		if (split.length) {
+			options.push("--cert");
+			if (password) {
+				options.push(req.config.cert.value + ":" + password);
+			} else {
+				options.push(req.config.cert.value);
+			}
 		} else {
-			options.push(pathCert);
+			const dataCert = Buffer.from(req.config.cert.value, "base64").toString("utf-8");
+			const pathCert = "/tmp/" + httpId + "/cert/cert." + type;
+			write(pathCert, dataCert, { mode: 440 });
+			options.push("--cert");
+			if (password) {
+				options.push(pathCert + ":" + password);
+			} else {
+				options.push(pathCert);
+			}
 		}
 	}
 	if (req.config.certStatus) {
@@ -77,16 +84,23 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 	}
 	// Key
 	if (req.config.key) {
-		const type = req.config.keyType?.toLowerCase() || "pem";
-		const dataKey = Buffer.from(req.config.key, "base64").toString("utf-8");
-		const pathKey = "/tmp/" + httpId + "/cert/key." + type;
-		write(pathKey, dataKey, { mode: 440 });
+		let type = "pem";
+		const split = req.config.key.split(".");
 		if (req.config.keyType) {
+			type = req.config.keyType.toLowerCase();
 			options.push("--key-type");
 			options.push(req.config.keyType);
 		}
-		options.push("--key");
-		options.push(pathKey);
+		if (split.length) {
+			options.push("--key");
+			options.push(req.config.key);
+		} else {
+			const dataKey = Buffer.from(req.config.key, "base64").toString("utf-8");
+			const pathKey = "/tmp/" + httpId + "/cert/key." + type;
+			write(pathKey, dataKey, { mode: 440 });
+			options.push("--key");
+			options.push(pathKey);
+		}
 	}
 	// Location
 	if (req.config.location) {
@@ -298,7 +312,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 	}
 	// Resolve
 	if (req.config.resolve) {
-		const resolves = req.config.resolve.map(r => `${r.host}:${r.port.toString()}:${r.address.join(",")}`);
+		const resolves = req.config.resolve.map((r) => `${r.host}:${r.port.toString()}:${r.address.join(",")}`);
 		for (let i = 0; i < resolves.length; i++) {
 			const resolve = resolves[i];
 			options.push("--resolve");
@@ -383,17 +397,17 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 	options.push("--url");
 	options.push(url);
 	return defer(() => curl(options)).pipe(
-		map(text => {
+		map((text) => {
 			const MAX_SIZE_DATA_RESPONSE = safeInteger(env.MAX_SIZE_DATA_RESPONSE) || 32768;
 			const [payload, code, sizeData] = text.split("&&SPLIT&&") as [string, string, string];
 			const status = safeInteger(code);
-			const data = !!payload.trim()
-				? Buffer.from(payload).toString("base64")
-				: null;
+			const data = !!payload.trim() ? Buffer.from(payload).toString("base64") : null;
 			if (safeInteger(sizeData) > MAX_SIZE_DATA_RESPONSE) {
 				throw {
 					id: httpId,
-					data: Buffer.from("The response size cannot be more than " + MAX_SIZE_DATA_RESPONSE.toString()).toString("base64"),
+					data: Buffer.from("The response size cannot be more than " + MAX_SIZE_DATA_RESPONSE.toString()).toString(
+						"base64"
+					),
 					state: "ERROR",
 					status: 422,
 					statusText: "Unprocessable data, the response payload too large"
@@ -418,12 +432,10 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 		}),
 		// @ts-expect-error
 		timeout({
-			first: !!req.config.timeoutAt
-				? new Date(req.config.timeoutAt)
-				: undefined,
+			first: !!req.config.timeoutAt ? new Date(req.config.timeoutAt) : undefined,
 			each: req.config.timeout
 		}),
-		catchError(error => {
+		catchError((error) => {
 			if (isPlainObject(error)) {
 				if ("data" in error && "status" in error) {
 					return throwError(() => error);
