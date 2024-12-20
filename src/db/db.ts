@@ -27,10 +27,7 @@ export const tasksDb = new Database(env.PATH_SQLITE, {
 function closeDb(): void {
 	try {
 		subscriptionManager.unsubscribeAll();
-		tasksDb.run("UPDATE timeframe SET lastRecordAt = ?1, data = ?2 WHERE id = 1", [
-			new Date().getTime(),
-			null
-		]);
+		tasksDb.run("UPDATE timeframe SET lastRecordAt = ?1, data = ?2 WHERE id = 1", [new Date().getTime(), null]);
 		exit();
 	} catch (e) {
 		logError(String(e));
@@ -38,9 +35,15 @@ function closeDb(): void {
 	}
 }
 
+const signals = ["beforeExit", "SIGINT", "SIGTERM", "exit"];
+
 if (clusterMode == "ACTIVE" && cluster.isPrimary) {
-	["beforeExit", "SIGINT", "SIGTERM", "exit"].forEach(signal => process.on(signal, closeDb));
+	for (let i = 0; i < signals.length; i++) {
+		process.on(signals[i], closeDb);
+	}
 }
 if (clusterMode == "INACTIVE") {
-	["beforeExit", "SIGINT", "SIGTERM", "exit"].forEach(signal => process.on(signal, closeDb));
+	for (let i = 0; i < signals.length; i++) {
+		process.on(signals[i], closeDb);
+	}
 }
