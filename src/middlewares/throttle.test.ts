@@ -14,15 +14,16 @@ type Socket = {
 };
 
 describe("TEST THROTTLE", () => {
-
-    const db = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
-        create: false,
-        strict: true
-    });
+	const db = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
+		create: false,
+		strict: true
+	});
 
 	const id = hash("127.0.0.1").toString();
 
-	const stmtRequestCount = db.prepare<Pick<ControlTable, "requestCount">, string>("SELECT requestCount FROM control WHERE id = ?");
+	const stmtRequestCount = db.prepare<Pick<ControlTable, "requestCount">, string>(
+		"SELECT requestCount FROM control WHERE id = ?"
+	);
 
 	const api = new Hono<Var & Socket>();
 
@@ -35,7 +36,7 @@ describe("TEST THROTTLE", () => {
 	});
 	api.use(throttle);
 
-	api.get("/status", c => c.text("OK"));
+	api.get("/status", (c) => c.text("OK"));
 
 	describe("", () => {
 		it("should allow requests within the limit", async () => {
@@ -109,6 +110,37 @@ describe("TEST THROTTLE", () => {
 		});
 		afterEach(() => {
 			setSystemTime();
+		});
+	});
+
+	describe("", () => {
+		const saveRequest = env.MAX_THROTTLE_REQUEST;
+		const saveTimeWindow = env.MAX_THROTTLE_TIME_WINDOW;
+		beforeEach(async () => {
+			env.MAX_THROTTLE_REQUEST = "0";
+			env.MAX_THROTTLE_TIME_WINDOW = "0";
+			await sleep(1);
+		});
+		it("should disabled throttle with max request 0 and max time window 0", async () => {
+			for (let i = 1; i <= 10; i++) {
+				await api.request("/status", {
+					cache: "no-cache",
+					headers: new Headers({
+						"Cache-Control": "no-cache, no-store, must-revalidate"
+					})
+				});
+			}
+			const res = await api.request("/status", {
+				headers: new Headers({
+					cache: "no-cache",
+					"Cache-Control": "no-cache, no-store, must-revalidate"
+				})
+			});
+			expect(res.status).toBe(200);
+		});
+		afterEach(() => {
+			env.MAX_THROTTLE_REQUEST = saveRequest;
+			env.MAX_THROTTLE_TIME_WINDOW = saveTimeWindow;
 		});
 	});
 });
