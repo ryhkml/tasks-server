@@ -7,8 +7,8 @@ import { cpus } from "node:os";
 import { logWarn } from "./logger";
 
 describe("TEST CLUSTER", () => {
-
-	logWarn("macOS and Windows ignore the reusePort option. This is an operating system limitation with SO_REUSEPORT");
+	logWarn("Windows and macOS ignore the reusePort option. This is an operating system limitation with SO_REUSEPORT");
+	logWarn("For more information, visit https://lwn.net/Articles/542629");
 
 	describe.if(navigator.platform == "Linux x86_64")("Linux", () => {
 		describe("env variables", () => {
@@ -19,7 +19,7 @@ describe("TEST CLUSTER", () => {
 		});
 
 		describe("worker", () => {
-			let workers = [] as Worker[];
+			const workers = [] as Worker[];
 			beforeEach(() => {
 				for (let i = 0; i < cpus().length; i++) {
 					workers.push(cluster.fork());
@@ -29,20 +29,10 @@ describe("TEST CLUSTER", () => {
 				expect(workers).toBeArrayOfSize(cpus().length);
 			});
 			afterEach(() => {
-				workers.forEach(w => w.kill());
+				for (let i = 0; i < workers.length; i++) {
+					workers[i].kill();
+				}
 			});
-		});
-	});
-
-	describe.if(navigator.platform == "MacIntel")("macOS", () => {
-		it("should successfully works on Mac", () => {
-			// Skip
-		});
-	});
-
-	describe.if(navigator.platform == "Win32")("Windows", () => {
-		it("should successfully works on Windows", () => {
-			// Skip
 		});
 	});
 });
