@@ -3,6 +3,7 @@ import { password } from "bun";
 import { Context, MiddlewareHandler } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { every } from "hono/combine";
+import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
 
 import { zValidator } from "@hono/zod-validator";
@@ -17,11 +18,11 @@ export function tasksAuth(): MiddlewareHandler {
 				throw new HTTPException(403);
 			}
 		}),
-		async (c, next) => {
+		createMiddleware(async (c, next) => {
 			// @ts-expect-error
 			c.set("ownerId", c.req.valid("header")["x-tasks-owner-id"]);
 			await next();
-		},
+		}),
 		bearerAuth({
 			async verifyToken(token, c: Context<Var>) {
 				const id = c.get("ownerId");
