@@ -1,13 +1,13 @@
 export function inRange(v: number, min: number, max: number): boolean {
-	return (Math.min(min, max) <= v && v <= Math.max(min, max));
+	return Math.min(min, max) <= v && v <= Math.max(min, max);
 }
 
-export function isEmpty<T>(v: T): boolean {
+export function isEmpty(v: unknown): boolean {
 	// @ts-expect-error
-	return [Object, Array].includes((v || {}).constructor) && !Object.entries((v || {})).length;
+	return [Object, Array].includes((v || {}).constructor) && !Object.entries(v || {}).length;
 }
 
-export function isPlainObject(v: unknown): v is { [k: string]: any } {
+export function isPlainObject(v: unknown): boolean {
 	if (typeof v !== "object" || v === null) {
 		return false;
 	}
@@ -22,7 +22,7 @@ export function isPlainObject(v: unknown): v is { [k: string]: any } {
 	return typeof ctor === "function" && ctor instanceof ctor && Function.prototype.call(ctor) === Function.prototype.call(v);
 }
 
-export function safeInteger<T>(v: T): number {
+export function safeInteger(v: unknown): number {
 	const state = Math.abs(Number(v));
 	if (isNaN(state) || state == 0) {
 		return 0;
