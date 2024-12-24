@@ -12,15 +12,14 @@ import { backupDb } from "./backup";
 import { logInfo } from "./logger";
 
 describe("TEST BACKUP", () => {
-
 	logInfo(`The backup method uses ${env.BACKUP_METHOD_SQLITE}. In addition, the test will be skipped`);
 
 	describe.if(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
 		it("should successfully defined env variables for local backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
-            expect(env.BACKUP_DIR_SQLITE).toBeDefined();
-            expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
-            expect(env.BACKUP_METHOD_SQLITE).toBe("LOCAL");
+			expect(env.BACKUP_DIR_SQLITE).toBeDefined();
+			expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
+			expect(env.BACKUP_METHOD_SQLITE).toBe("LOCAL");
 		});
 	});
 
@@ -28,7 +27,7 @@ describe("TEST BACKUP", () => {
 		it("should successfully defined env variables for Google Cloud Storage backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
 			expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
-            expect(env.BACKUP_METHOD_SQLITE).toBe("GOOGLE_CLOUD_STORAGE");
+			expect(env.BACKUP_METHOD_SQLITE).toBe("GOOGLE_CLOUD_STORAGE");
 			expect(env.BACKUP_GCS_PROJECT_ID_SQLITE).toBeDefined();
 			expect(env.BACKUP_GCS_PRIVATE_KEY_SQLITE).toBeDefined();
 			expect(env.BACKUP_GCS_CLIENT_ID_SQLITE).toBeDefined();
@@ -57,7 +56,9 @@ describe("TEST BACKUP", () => {
 			// Tasks
 			const pathDb1 = env.BACKUP_DIR_SQLITE + "/" + basename(env.PATH_SQLITE);
 			const db1 = new Database(pathDb1, { strict: true, create: false });
-			const raw1 = db1.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+			const raw1 = db1.query<{ name: string }, [string, string]>(
+				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
+			);
 			const owner = raw1.get("table", "owner");
 			expect(owner).not.toBeNull();
 			expect(owner?.name).toBe("owner");
@@ -73,7 +74,9 @@ describe("TEST BACKUP", () => {
 			// Throttle
 			const pathDb2 = env.BACKUP_DIR_SQLITE + "/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
 			const db2 = new Database(pathDb2, { strict: true, create: false });
-			const raw2 = db2.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+			const raw2 = db2.query<{ name: string }, [string, string]>(
+				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
+			);
 			const control = raw2.get("table", "control");
 			expect(control).not.toBeNull();
 			expect(control?.name).toBe("control");
@@ -110,8 +113,8 @@ describe("TEST BACKUP", () => {
 		});
 		it("should successfully restore the database file from Google Cloud Storage", async () => {
 			const pathBucketBakDb = env.BACKUP_BUCKET_DIR_SQLITE + "/" + basename(pathBakDb);
-			const [buffer] = await bucket.file(pathBucketBakDb).download();
-			await write("/tmp/tasks/gcs/" + basename(pathBakDb), buffer);
+			const [fileBakDb] = await bucket.file(pathBucketBakDb).download();
+			await write("/tmp/tasks/gcs/" + basename(pathBakDb), fileBakDb.buffer);
 			await sleep(1);
 			await extract({
 				file: pathBakDb,
@@ -120,7 +123,9 @@ describe("TEST BACKUP", () => {
 			// Tasks
 			const pathDb1 = "/tmp/tasks/gcs/" + basename(env.PATH_SQLITE);
 			const db1 = new Database(pathDb1, { strict: true, create: false });
-			const raw1 = db1.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+			const raw1 = db1.query<{ name: string }, [string, string]>(
+				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
+			);
 			const owner = raw1.get("table", "owner");
 			expect(owner).not.toBeNull();
 			expect(owner?.name).toBe("owner");
@@ -136,7 +141,9 @@ describe("TEST BACKUP", () => {
 			// Throttle
 			const pathDb2 = "/tmp/tasks/gcs/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
 			const db2 = new Database(pathDb2, { strict: true, create: false });
-			const raw2 = db2.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+			const raw2 = db2.query<{ name: string }, [string, string]>(
+				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
+			);
 			const control = raw2.get("table", "control");
 			expect(control).not.toBeNull();
 			expect(control?.name).toBe("control");
