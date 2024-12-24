@@ -3,6 +3,7 @@
 		"strict": true,
 		"jsx": "react-jsx",
 		"jsxImportSource": "hono/jsx",
-		"removeComments": true
+		"removeComments": true,
+		"downlevelIteration": true
 	}
 }
