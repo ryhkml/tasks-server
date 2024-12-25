@@ -1,4 +1,6 @@
 # Don't count tests in the language stats
 src/**/*.test.ts linguist-documentation
-# Count SQL
+# Count some languages
 *.sql linguist-detectable=true
+*.sh linguist-language=Shell linguist-detectable
+*.nix linguist-language=Nix linguist-detectable
