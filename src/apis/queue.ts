@@ -723,11 +723,11 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 									Pick<ConfigTable, "retryCount" | "retryLimit">,
 									[number, string]
 								>(`
-								UPDATE config
-								SET retrying = ?1
-								WHERE id = ?2
-								RETURNING retryCount, retryLimit
-							`);
+								    UPDATE config
+								    SET retrying = ?1
+								    WHERE id = ?2
+								    RETURNING retryCount, retryLimit
+							    `);
 								const { retryCount, retryLimit } = stmtRetryCount.get(1, queueId)!;
 								if (body.config.retryAt) {
 									retryDueTime = new Date(body.config.retryAt);
@@ -746,15 +746,15 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 									"X-Tasks-Estimate-Next-Retry-At": estimateNextRetryAt.toString()
 								};
 								const stmtQueueError = tasksDb.prepare<void, [number, string, string]>(`
-								UPDATE queue
-								SET statusCode = ?1, response = ?2
-								WHERE id = ?3
-							`);
+								    UPDATE queue
+								    SET statusCode = ?1, response = ?2
+								    WHERE id = ?3
+							    `);
 								const stmtRetryCountError = tasksDb.prepare<void, [string, number, string]>(`
-								UPDATE config
-								SET headers = ?1, estimateNextRetryAt = ?2
-								WHERE id = ?3
-							`);
+								    UPDATE config
+								    SET headers = ?1, estimateNextRetryAt = ?2
+								    WHERE id = ?3
+							    `);
 								tasksDb.transaction(() => {
 									stmtQueueError.run(error.status, error.data!, queueId);
 									stmtRetryCountError.run(
