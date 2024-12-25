@@ -55,7 +55,7 @@ To install dependencies, run:
 sh install.sh
 ```
 
-To update dependencies, run:
+To update dependencies after a `git pull`, run:
 
 ```sh
 sh update.sh
