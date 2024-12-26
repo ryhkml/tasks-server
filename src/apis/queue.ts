@@ -56,24 +56,6 @@ type QueueResumable = {
 	body: TaskRequest;
 };
 
-const backupJob = Cron(
-	env.BACKUP_CRON_PATTERN_SQLITE || "0 0 * * *",
-	{
-		timezone: env.BACKUP_CRON_TZ_SQLITE || env.TZ,
-		protect: true,
-		paused: true,
-		name: "backup-db"
-	},
-	async () => {
-		try {
-			await backupDb(env.BACKUP_METHOD_SQLITE);
-			logInfo("Backup done");
-		} catch (err) {
-			logError(String(err));
-		}
-	}
-);
-
 const queue = new Hono<Var>();
 
 queue.get(
@@ -999,9 +981,27 @@ function cipherKeyGen(id: string): string {
 }
 
 function reschedule(): void {
+	let backupJob: Cron | null = Cron(
+		env.BACKUP_CRON_PATTERN_SQLITE || "0 0 * * *",
+		{
+			timezone: env.BACKUP_CRON_TZ_SQLITE || env.TZ,
+			protect: true,
+			paused: true,
+			name: "backup-db"
+		},
+		async () => {
+			try {
+				await backupDb(env.BACKUP_METHOD_SQLITE);
+				logInfo("Backup done");
+			} catch (err) {
+				logError(String(err));
+			}
+		}
+	);
 	if (clusterMode == "ACTIVE" && cluster.isWorker) {
 		runMessageEmitter();
 		backupJob.stop();
+		backupJob = null;
 	}
 	const raw = tasksDb.query<{ count: number; lastRecordAt: number }, TaskState>(`
 		SELECT
@@ -1011,10 +1011,10 @@ function reschedule(): void {
 	const { count, lastRecordAt } = raw.get("RUNNING")!;
 	if (count == 0) {
 		if (clusterMode == "ACTIVE" && cluster.isPrimary) {
-			backupJob.resume();
+			backupJob?.resume();
 		}
 		if (clusterMode == "INACTIVE") {
-			backupJob.resume();
+			backupJob?.resume();
 		}
 		raw.finalize();
 		return;
@@ -1062,7 +1062,7 @@ function reschedule(): void {
 				})();
 			}
 			setImmediate(() => {
-				backupJob.resume();
+				backupJob?.resume();
 				stmtQueuesHistory.finalize();
 				stmtQueueResumable.finalize();
 				queuesResumable = null;
@@ -1147,7 +1147,7 @@ function reschedule(): void {
 			}
 		}
 		setImmediate(() => {
-			backupJob.resume();
+			backupJob?.resume();
 			stmtQueuesHistory.finalize();
 			stmtQueueResumable.finalize();
 			queuesResumable = null;
