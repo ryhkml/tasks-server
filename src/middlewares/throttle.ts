@@ -42,18 +42,17 @@ export async function throttle(c: Context<Var>, next: Next): Promise<void> {
 					logWarn(
 						"(429) Request temporarily blocked",
 						JSON.stringify({
-							ip: c.get("ip"),
 							userAgent: c.get("userAgent")
 						})
 					);
 					throw new HTTPException(429);
 				}
 				const stmtRequestCount = db.query<Pick<ControlTable, "requestCount">, string>(`
-				UPDATE control
-				SET requestCount = requestCount + 1
-				WHERE id = ?
-				RETURNING requestCount
-			`);
+				    UPDATE control
+				    SET requestCount = requestCount + 1
+				    WHERE id = ?
+				    RETURNING requestCount
+			    `);
 				const { requestCount } = stmtRequestCount.get(id)!;
 				c.header("RateLimit-Remaining", (MAX_REQUEST - requestCount).toString());
 			} else {
