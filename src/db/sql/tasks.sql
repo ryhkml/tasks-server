@@ -25,7 +25,7 @@ BEGIN
 	DELETE FROM queue WHERE ownerId = OLD.id;
 END;
 
--- 
+--
 
 CREATE TABLE queue (
 	id						TEXT UNIQUE PRIMARY KEY,
@@ -66,7 +66,7 @@ BEGIN
 	DELETE FROM config WHERE id = OLD.id;
 END;
 
--- 
+--
 
 CREATE TABLE config (
 	id						TEXT UNIQUE PRIMARY KEY,
@@ -140,10 +140,11 @@ BEGIN
 	UPDATE config SET retryCount = retryCount + 1 WHERE id = NEW.id;
 END;
 
--- 
+--
 
 CREATE TABLE timeframe (
 	id 				INTEGER PRIMARY KEY,
 	lastRecordAt	INTEGER NOT NULL,
-	data			TEXT NULL
+	data			TEXT NULL,
+    exit            INTEGER NULL DEFAULT 0
 );

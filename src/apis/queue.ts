@@ -1,6 +1,7 @@
-import { env } from "bun";
+import { env, write } from "bun";
 
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
+import { dirname } from "node:path";
 
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -11,10 +12,12 @@ import {
 	catchError,
 	defer,
 	delayWhen,
+	EMPTY,
 	exhaustMap,
 	expand,
 	filter,
 	finalize,
+	interval,
 	map,
 	of,
 	retry,
@@ -1003,12 +1006,22 @@ function reschedule(): void {
 		backupJob.stop();
 		backupJob = null;
 	}
-	const raw = tasksDb.query<{ count: number; lastRecordAt: number }, TaskState>(`
+	const raw = tasksDb.query<{ count: number; lastRecordAt: number; exit: 0 | 1 }, TaskState>(`
 		SELECT
-		(SELECT COUNT(*) FROM queue WHERE state = ?1) AS count,
-		(SELECT lastRecordAt FROM timeframe WHERE id = 1 LIMIT 1) AS lastRecordAt
+		    (SELECT COUNT(*) FROM queue WHERE state = ?) AS count,
+            lastRecordAt,
+            exit
+        FROM timeframe
+        WHERE id = 1
+        LIMIT 1
 	`);
-	const { count, lastRecordAt } = raw.get("RUNNING")!;
+	let { count, lastRecordAt, exit } = raw.get("RUNNING")!;
+	if (!exit) {
+		const ms = readLastRecord();
+		if (ms) {
+			lastRecordAt = ms;
+		}
+	}
 	if (count == 0) {
 		if (clusterMode == "ACTIVE" && cluster.isPrimary) {
 			backupJob?.resume();
@@ -1016,7 +1029,7 @@ function reschedule(): void {
 		if (clusterMode == "INACTIVE") {
 			backupJob?.resume();
 		}
-		raw.finalize();
+		updateLastRecord();
 		return;
 	}
 	let queuesResumable: QueueResumable[] | null = [];
@@ -1066,6 +1079,7 @@ function reschedule(): void {
 				stmtQueuesHistory.finalize();
 				stmtQueueResumable.finalize();
 				queuesResumable = null;
+				updateLastRecord();
 			});
 		}
 		if (cluster.isWorker) {
@@ -1151,6 +1165,7 @@ function reschedule(): void {
 			stmtQueuesHistory.finalize();
 			stmtQueueResumable.finalize();
 			queuesResumable = null;
+			updateLastRecord();
 		});
 	}
 	raw.finalize();
@@ -1162,6 +1177,31 @@ function runMessageEmitter(): void {
 			subscriptionManager.unsubscribe(message.queueId);
 		}
 	});
+}
+
+function updateLastRecord(): void {
+	tasksDb.run("UPDATE timeframe SET exit = ? WHERE id = 1", [0]);
+	interval(1000)
+		.pipe(
+			map(() => new Date().getTime().toString()),
+			exhaustMap((ms) =>
+				defer(() => write(dirname(env.PATH_SQLITE) + "/.lastrecordkeep", ms, { mode: 440 })).pipe(
+					catchError(() => EMPTY)
+				)
+			)
+		)
+		.subscribe();
+}
+
+function readLastRecord(): number {
+	try {
+		const ms = readFileSync(dirname(env.PATH_SQLITE) + "/.lastrecordkeep")
+			.toString()
+			.trim();
+		return safeInteger(ms);
+	} catch (_) {
+		return 0;
+	}
 }
 
 reschedule();
