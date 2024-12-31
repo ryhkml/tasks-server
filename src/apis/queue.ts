@@ -1029,6 +1029,7 @@ function reschedule(): void {
 		if (clusterMode == "INACTIVE") {
 			backupJob?.resume();
 		}
+		raw.finalize();
 		updateLastRecord();
 		return;
 	}
