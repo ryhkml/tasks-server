@@ -14,7 +14,7 @@ COPY src ./src/
 COPY .env.production ./.env
 
 RUN bun install --frozen-lockfile --production && \
-	mkdir .database && \
+    mkdir .database && \
     bun --env-file=.env run init-db.ts && \
     bun run bin
 
@@ -26,16 +26,16 @@ ENV NIXPKGS_ALLOW_UNFREE=1
 COPY docker.nix /tmp/docker.nix
 
 RUN mkdir -p /output/store && \
-	nix-channel --update && \
-	nix-env --profile /output/profile -i -f /tmp/docker.nix && \
-	cp -a $(nix-store -qR /output/profile) /output/store && \
-	nix-collect-garbage && \
-	nix-collect-garbage -d
+    nix-channel --update && \
+    nix-env --profile /output/profile -i -f /tmp/docker.nix && \
+    cp -a $(nix-store -qR /output/profile) /output/store && \
+    nix-collect-garbage && \
+    nix-collect-garbage -d
 
 # Final stage
 FROM gcr.io/distroless/base-debian12:nonroot
 
-LABEL maintainer="Reyhan Kamil <mail@ryhkml.dev>"
+LABEL maintainer="Reyhan Kamil <ryhkmll@gmail.com>"
 
 ARG PORT
 
