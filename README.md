@@ -116,7 +116,7 @@ You can use absolute path or current working path, for example:
 
 ### Owner
 
-Each owner can have a maximum of 1000 tasks in their task queue.
+Each owner can have a maximum of 1000 tasks in queue.
 
 -   ✅ `GET /v1/owners/:name`
 -   ✅ `DELETE /v1/owners/:name`
@@ -135,6 +135,7 @@ A queue is a collection of tasks scheduled for later execution. Queues can be pa
 -   ✅ `PATCH /v1/queues/:id/resume`
 -   ✅ `PATCH /v1/queues/:id/revoke`
 -   ✅ `POST /v1/queues/register`
+-   ✅ `POST /v1/queues/:id/execute`
 
 An example of requesting a task:
 
@@ -213,7 +214,7 @@ To specify a particular time zone, you can use the specific time zone offset you
         "method": "POST"
     },
     "config": {
-        "executeAt": "Dec 12 2012 12:12:12 +07:00 AM"
+        "executeAt": "Dec 12 2012 12:12:12 AM +07:00"
     }
 }
 ```
@@ -237,7 +238,7 @@ Tasks Server allows configuring custom certificates to modify the curl options [
         "method": "POST"
     },
     "config": {
-        "executeAt": "Dec 12 2012 12:12:12 +07:00 AM",
+        "executeAt": "Dec 12 2012 12:12:12 AM +07:00",
         "ca": "/tmp/ca.crt",
         "cert": {
             "value": "/tmp/fullchain.pem"
@@ -263,7 +264,7 @@ When running the Tasks Server in a container environment, you can
             "method": "POST"
         },
         "config": {
-            "executeAt": "Dec 12 2012 12:12:12 +07:00 AM",
+            "executeAt": "Dec 12 2012 12:12:12 AM +07:00",
             "ca": "base64...",
             "cert": {
                 "value": "base64..."
