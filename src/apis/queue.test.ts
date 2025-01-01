@@ -901,6 +901,73 @@ describe("TEST QUEUE", () => {
 		});
 	});
 
+	describe("POST /v1/queues/:queueId/execute", () => {
+		let queueId = "";
+		describe("", () => {
+			beforeEach(async () => {
+				const body: TaskRequest = {
+					httpRequest: {
+						url: env.DUMMY_TARGET_URL,
+						method: "POST",
+						data: "Some data"
+					},
+					// @ts-expect-error
+					config: {
+						executionDelay: 60000
+					}
+				};
+				const res = await api.request("/v1/queues/register", {
+					method: "POST",
+					cache: "no-cache",
+					body: JSON.stringify(body),
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				const data = (await res.json()) as Queue;
+				queueId = data.id;
+			});
+			it("should successfully force execute a task", async () => {
+				const res = await api.request("/v1/queues/" + queueId + "/execute", {
+					method: "POST",
+					cache: "no-cache",
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				const data = (await res.json()) as { status: "Done" };
+				expect(data).toStrictEqual({ status: "Done" });
+				await sleep(1000);
+				const raw = tasksDb.query<{ state: "SUCCESS" }, [string]>("SELECT state FROM queue WHERE id = ?");
+				const value = raw.get(queueId);
+				expect(value?.state).toBe("SUCCESS");
+			});
+		});
+
+		describe("", () => {
+			it("should unsuccessfully force execute a task", async () => {
+				const res = await api.request("/v1/queues/" + queueId + "/execute", {
+					method: "POST",
+					cache: "no-cache",
+					headers: new Headers({
+						Authorization: "Bearer " + key,
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						"Content-Type": "application/json",
+						"X-Tasks-Owner-Id": ownerId
+					})
+				});
+				await res.json();
+				expect(res.status).toBe(422);
+			});
+		});
+	});
+
 	describe("PATCH /v1/queues/:queueId/pause", () => {
 		let queueId = "";
 		describe("", () => {

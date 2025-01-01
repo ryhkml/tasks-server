@@ -9,6 +9,7 @@ import { HTTPException } from "hono/http-exception";
 import { zValidator } from "@hono/zod-validator";
 import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
 import {
+	BehaviorSubject,
 	catchError,
 	defer,
 	delayWhen,
@@ -19,6 +20,7 @@ import {
 	finalize,
 	interval,
 	map,
+	merge,
 	of,
 	retry,
 	take,
@@ -59,6 +61,7 @@ type QueueResumable = {
 	body: TaskRequest;
 };
 
+const subjectForceExecute = new BehaviorSubject<string>("");
 const queue = new Hono<Var>();
 
 queue.get(
@@ -154,6 +157,42 @@ queue.post(
 	(c) => {
 		const queue = registerTask(c.req.valid("json"), c.get("todayAt"), c.get("ownerId"));
 		return c.json(queue, 201);
+	}
+);
+
+queue.post(
+	"/:queueId/execute",
+	tasksAuth(),
+	zValidator("param", queueIdSchema, (result) => {
+		if (!result.success) {
+			const errors = result.error.format();
+			throw new HTTPException(400, {
+				cause: errors
+			});
+		}
+	}),
+	(c) => {
+		const { queueId } = c.req.valid("param");
+		const raw = tasksDb.query<{ status: "Done" }, [string, TaskState]>(`
+            SELECT 'Done' AS status
+            FROM queue
+            WHERE id = ?1 AND state = ?2
+            LIMIT 1
+        `);
+		const status = raw.get(queueId, "RUNNING");
+		if (status == null) {
+			throw new HTTPException(422);
+		}
+		subjectForceExecute.next(queueId);
+		tasksDb.run(
+			`
+            UPDATE queue
+            SET estimateExecutionAt = ?1
+            WHERE id = ?2
+        `,
+			[new Date().getTime(), queueId]
+		);
+		return c.json(status);
 	}
 );
 
@@ -653,7 +692,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 	dueTime = typeof dueTime === "number" ? addMilliseconds(dueTime, -1).getTime() : addMilliseconds(dueTime, -1);
 	subscriptionManager.add(
 		queueId,
-		timer(dueTime)
+		merge(timer(dueTime), subjectForceExecute.pipe(filter((id) => id == queueId)))
 			.pipe(
 				expand((_, i) =>
 					defer(() => connectivity()).pipe(
