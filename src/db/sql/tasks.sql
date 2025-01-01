@@ -146,5 +146,5 @@ CREATE TABLE timeframe (
 	id 				INTEGER PRIMARY KEY,
 	lastRecordAt	INTEGER NOT NULL,
 	data			TEXT NULL,
-    exit            INTEGER NULL DEFAULT 0
+    exit            INTEGER NULL DEFAULT NULL
 );

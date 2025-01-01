@@ -645,7 +645,7 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 
 function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string): void {
 	let httpId = "";
-	const stmtQueue = tasksDb.prepare<void, [TaskState, number, string | null, number, string]>(`
+	const stmtQueue = tasksDb.query<void, [TaskState, number, string | null, number, string]>(`
 		UPDATE queue
 		SET state = ?1, statusCode = ?2, response = ?3, estimateEndAt = ?4
 		WHERE id = ?5
@@ -704,7 +704,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 								let retryDueTime = 0 as number | Date;
 								let estimateNextRetryAt = 0;
 								const retryingAt = new Date().getTime();
-								const stmtRetryCount = tasksDb.prepare<
+								const stmtRetryCount = tasksDb.query<
 									Pick<ConfigTable, "retryCount" | "retryLimit">,
 									[number, string]
 								>(`
@@ -730,12 +730,12 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 									"X-Tasks-Retry-Limit": retryLimit.toString(),
 									"X-Tasks-Estimate-Next-Retry-At": estimateNextRetryAt.toString()
 								};
-								const stmtQueueError = tasksDb.prepare<void, [number, string, string]>(`
+								const stmtQueueError = tasksDb.query<void, [number, string, string]>(`
 								    UPDATE queue
 								    SET statusCode = ?1, response = ?2
 								    WHERE id = ?3
 							    `);
-								const stmtRetryCountError = tasksDb.prepare<void, [string, number, string]>(`
+								const stmtRetryCountError = tasksDb.query<void, [string, number, string]>(`
 								    UPDATE config
 								    SET headers = ?1, estimateNextRetryAt = ?2
 								    WHERE id = ?3
@@ -760,13 +760,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 										})
 									);
 								}
-								return timer(retryDueTime).pipe(
-									finalize(() => {
-										stmtRetryCount.finalize();
-										stmtQueueError.finalize();
-										stmtRetryCountError.finalize();
-									})
-								);
+								return timer(retryDueTime);
 							}
 						})
 					);
@@ -777,7 +771,6 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 						force: true
 					});
 					subscriptionManager.unsubscribe(queueId);
-					stmtQueue.finalize();
 				})
 			)
 			.subscribe({
@@ -1006,7 +999,7 @@ function reschedule(): void {
 		backupJob.stop();
 		backupJob = null;
 	}
-	const raw = tasksDb.query<{ count: number; lastRecordAt: number; exit: 0 | 1 }, TaskState>(`
+	const raw = tasksDb.query<{ count: number; lastRecordAt: number; exit: 0 | 1 | null }, TaskState>(`
 		SELECT
 		    (SELECT COUNT(*) FROM queue WHERE state = ?) AS count,
             lastRecordAt,
@@ -1016,12 +1009,6 @@ function reschedule(): void {
         LIMIT 1
 	`);
 	let { count, lastRecordAt, exit } = raw.get("RUNNING")!;
-	if (!exit) {
-		const ms = readLastRecord();
-		if (ms) {
-			lastRecordAt = ms;
-		}
-	}
 	if (count == 0) {
 		if (clusterMode == "ACTIVE" && cluster.isPrimary) {
 			backupJob?.resume();
@@ -1032,6 +1019,12 @@ function reschedule(): void {
 		raw.finalize();
 		updateLastRecord();
 		return;
+	}
+	if (exit == null) {
+		const ms = readLastRecord();
+		if (ms) {
+			lastRecordAt = ms;
+		}
 	}
 	let queuesResumable: QueueResumable[] | null = [];
 	const batchSize = 500;
@@ -1181,7 +1174,7 @@ function runMessageEmitter(): void {
 }
 
 function updateLastRecord(): void {
-	tasksDb.run("UPDATE timeframe SET exit = ? WHERE id = 1", [0]);
+	tasksDb.run("UPDATE timeframe SET exit = ? WHERE id = 1", [null]);
 	interval(1000)
 		.pipe(
 			map(() => new Date().getTime().toString()),
