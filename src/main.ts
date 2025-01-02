@@ -1,10 +1,14 @@
 import { BunFile, env, file, hash, serve, SocketAddress } from "bun";
 
+import { join } from "node:path";
+import { cwd } from "node:process";
+
 import cluster from "node:cluster";
 
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
 import { secureHeaders } from "hono/secure-headers";
+import { swaggerUI } from "@hono/swagger-ui";
 
 import { tasksDb } from "./db/db";
 import { exceptionFilter } from "./middlewares/exception-filter";
@@ -24,15 +28,17 @@ type Socket = {
 
 const api = new Hono<Var & Socket>();
 
-api.use(secureHeaders({
-	crossOriginOpenerPolicy: false,
-	crossOriginResourcePolicy: false,
-	originAgentCluster: false,
-	xDnsPrefetchControl: false,
-	xDownloadOptions: false,
-	xFrameOptions: "DENY",
-	xPermittedCrossDomainPolicies: false
-}));
+api.use(
+	secureHeaders({
+		crossOriginOpenerPolicy: false,
+		crossOriginResourcePolicy: false,
+		originAgentCluster: false,
+		xDnsPrefetchControl: false,
+		xDownloadOptions: false,
+		xFrameOptions: "DENY",
+		xPermittedCrossDomainPolicies: false
+	})
+);
 api.use(async (c, next) => {
 	c.set("clientId", hash(c.env.ip.address).toString());
 	c.set("ip", c.env.ip.address);
@@ -44,10 +50,18 @@ api.use(async (c, next) => {
 api.notFound(() => new Response(null, { status: 404 }));
 api.onError(exceptionFilter);
 
+if (env.SWAGGER_UI == "1") {
+	api.get("/swagger", swaggerUI({ url: "/swagger/yaml" }));
+	api.get("/swagger/yaml", async (c) => {
+		const content = await file(join(cwd(), "swagger.yaml")).text();
+		return c.text(content);
+	});
+}
+
 api.use(prettyJSON({ space: 4 }));
 api.use(throttle);
 
-api.get("/status", c => c.text("OK"));
+api.get("/status", (c) => c.text("OK"));
 
 api.basePath("/v1").route("/owners", owner);
 api.basePath("/v1").route("/queues", queue);
@@ -70,7 +84,7 @@ function read(path?: string): BunFile | undefined {
  *
  * reusePort is only effective on Linux.
  * On Windows and macOS, the operating system does not load balance HTTP connections as one would expect.
-*/
+ */
 function startServer(reusePort?: boolean): void {
 	const server = serve({
 		fetch: (req, server) => api.fetch(req, { ip: server.requestIP(req) }),
@@ -83,9 +97,13 @@ function startServer(reusePort?: boolean): void {
 			ca: read(env.PATH_TLS_CA)
 		}
 	});
-	logInfo("Server listening on", server.url.toString(), JSON.stringify({
-		pid: process.pid
-	}));
+	logInfo(
+		"Server listening on",
+		server.url.toString(),
+		JSON.stringify({
+			pid: process.pid
+		})
+	);
 }
 
 if (env.CLUSTER_MODE == "1") {
@@ -103,7 +121,7 @@ if (env.CLUSTER_MODE == "1") {
 			const worker = cluster.fork({
 				SPAWN_INSTANCE: i.toString()
 			});
-			worker.on("message", message => {
+			worker.on("message", (message) => {
 				if (typeof message === "number" && message == 1) {
 					workerCount += 1;
 					if (workerCount == MAX_INSTANCES) {

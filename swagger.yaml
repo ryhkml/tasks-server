@@ -1,0 +1,37 @@
+openapi: 3.0.3
+info:
+  title: Swagger Tasks Server - OpenAPI
+  description: Welcome to the Tasks Server API documentation! This API provides access to an on-premise task management service designed for efficient task execution and distribution. Within this service, a 'task' is a discrete, single-use operation. Use this API to submit requests for tasks, which will then be processed asynchronously by the server. Explore the endpoints below to learn how to manage and monitor your tasks
+  version: 1.0.0-beta.3
+tags:
+  - name: Owner
+    description: Each owner can have a maximum of 1000 tasks in queue
+  - name: Queue
+    description: A queue is a collection of tasks scheduled for later execution. Queues can be paused and resumed, and their size decreases as tasks complete
+paths:
+  "/owners/register":
+    post:
+      tags:
+        - Owner
+      summary: Register new owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Owner name
+              required:
+                - name
+      response:
+        '201':
+          content:
+            application/json: {}
+          description: Owner registered
+        '400':
+          description: Invalid payload
+        '409':
+          description: Owner has already registered

@@ -3,6 +3,7 @@ declare module "bun" {
 		LOG: "0" | "1";
 		LOG_TZ: string;
 		PORT: string;
+		SWAGGER_UI: "0" | "1";
 		CIPHER_KEY: string;
 		CLUSTER_MODE?: "0" | "1";
 		MAX_INSTANCES?: string;
@@ -19,7 +20,7 @@ declare module "bun" {
 		BACKUP_BUCKET_DIR_SQLITE: string;
 		BACKUP_CRON_PATTERN_SQLITE: string;
 		BACKUP_CRON_TZ_SQLITE: string;
-		// 
+		//
 		CONNECTIVITY_HOSTNAME: string;
 		MAX_SIZE_BODY_REQUEST: string;
 		MAX_SIZE_DATA_RESPONSE: string;
@@ -40,8 +41,8 @@ type Var = {
 		ownerId: string;
 		todayAt: number;
 		userAgent: string | null;
-	}
-}
+	};
+};
 
 type RecordString = Record<string, string>;
 
@@ -83,7 +84,7 @@ type ConfigTable = {
 	 * `url` property must be decrypt first to become readable plain url
 	 *
 	 * @example decr(url, env.CHIPER_KEY)
-	*/
+	 */
 	url: string;
 	method: HttpMethod;
 	/**
@@ -92,7 +93,7 @@ type ConfigTable = {
 	 * `data` property must be decrypt first and then parse into an object
 	 *
 	 * @example JSON.parse(decr(data, env.CHIPER_KEY))
-	*/
+	 */
 	data: string | null;
 	/**
 	 * ATTENTION
@@ -100,13 +101,13 @@ type ConfigTable = {
 	 * `queryStringify` property must be decrypt first and then parse into an object
 	 *
 	 * @example JSON.parse(decr(queryStringify, env.CHIPER_KEY))
-	*/
+	 */
 	query: string | null;
 	/**
 	 * ATTENTION
 	 *
 	 * `cookie` property must be decrypt first to become readable plain text
-	*/
+	 */
 	cookie: string | null;
 	/**
 	 * ATTENTION
@@ -114,33 +115,33 @@ type ConfigTable = {
 	 * `headersStringify` property must be decrypt first and then parse into an object
 	 *
 	 * @example JSON.parse(decr(headersStringify, env.CHIPER_KEY))
-	*/
+	 */
 	headers: string | null;
 	/**
 	 * ATTENTION
 	 *
 	 * `authBasic` property must be decrypt first and then parse into an object
-	*/
+	 */
 	authBasic: string | null;
 	/**
 	 * ATTENTION
 	 *
 	 * `authDigest` property must be decrypt first and then parse into an object
-	*/
+	 */
 	authDigest: string | null;
 	/**
 	 * ATTENTION
 	 *
 	 * `authNtlm` property must be decrypt first and then parse into an object
-	*/
+	 */
 	authNtlm: string | null;
 	/**
 	 * ATTENTION
 	 *
 	 * `authAwsSigv4` property must be decrypt first and then parse into an object
-	*/
+	 */
 	authAwsSigv4: string | null;
-	// 
+	//
 	executionDelay: number;
 	executeAt: string | null;
 	executeImmediately: number;
@@ -157,24 +158,24 @@ type ConfigTable = {
 	 * `ignoreStatusCode` property must be parse first to be an array number
 	 *
 	 * @example JSON.parse(ignoreStatusCode)
-	*/
+	 */
 	ignoreStatusCode: string;
 	estimateNextRetryAt: number;
 	timeout: number;
 	timeoutAt: string | null;
-	// 
+	//
 	ca: string | null;
 	/**
 	 * ATTENTION
 	 *
 	 * `cert` property must be decrypt first and then parse into an object
-	*/
+	 */
 	cert: string | null;
 	certType: string | null;
 	certStatus: number;
 	key: string | null;
 	keyType: string | null;
-	// 
+	//
 	userAgent: string;
 	traceResponseData: number;
 	location: number | null;
@@ -185,13 +186,13 @@ type ConfigTable = {
 	 * ATTENTION
 	 *
 	 * `dnsServer` property must be decrypt first and then parse into an array string
-	*/
+	 */
 	dnsServer: string | null;
 	/**
 	 * ATTENTION
 	 *
 	 * `dohUrl` property must be decrypt first to become readable plain url
-	*/
+	 */
 	dohUrl: string | null;
 	dohInsecure: number;
 	httpVersion: HttpVersion;
@@ -199,7 +200,7 @@ type ConfigTable = {
 	 * ATTENTION
 	 *
 	 * `refererUrl` property must be decrypt first to become readable plain url
-	*/
+	 */
 	insecure: number;
 	refererUrl: string | null;
 	redirectAttempts: number;
@@ -208,14 +209,14 @@ type ConfigTable = {
 	 * ATTENTION
 	 *
 	 * `resolve` property must be decrypt first and then parse into an array string
-	*/
+	 */
 	resolve: string | null;
 	ipVersion: 4 | 6;
 	hsts: string | null;
 	sessionId: number;
 	tlsVersion: string | null;
 	tlsMaxVersion: string | null;
-	// 
+	//
 	haProxyClientIp: string | null;
 	haProxyProtocol: number | null;
 	//
@@ -226,7 +227,7 @@ type ConfigTable = {
 	proxyHeaders: string | null;
 	proxyHttpVersion: string;
 	proxyInsecure: number | null;
-}
+};
 
 interface ControlTable {
 	id: string;
@@ -234,17 +235,17 @@ interface ControlTable {
 	lastRequestAt: number;
 }
 
-type CurlStateHttpResponse = Extract<TaskState, "SUCCESS" | "ERROR">
+type CurlStateHttpResponse = Extract<TaskState, "SUCCESS" | "ERROR">;
 type CurlHttpResponse = {
 	/**
 	 * This id is an http response identifier
-	*/
+	 */
 	id: string;
 	/**
 	 * @returns string base64
-	*/
+	 */
 	data: string | null;
 	state: CurlStateHttpResponse;
 	status: number;
 	statusText: string;
-}
+};
