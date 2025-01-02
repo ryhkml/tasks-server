@@ -21,6 +21,7 @@
 	},
 	"dependencies": {
 		"@google-cloud/storage": "^7.14.0",
+		"@hono/swagger-ui": "^0.5.0",
 		"@hono/zod-validator": "^0.2.2",
 		"croner": "^8.1.2",
 		"date-fns": "^4.1.0",
