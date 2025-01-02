@@ -124,7 +124,7 @@ Each owner can have a maximum of 1000 tasks in queue.
 
 ### Queue
 
-A queue is a collection of tasks scheduled for later execution. Queues can be paused and resumed, and their size decreases as tasks complete.
+A queue is a collection of tasks scheduled for later execution. Queues can be paused, resumed, and forced to execute. Their size decreases as tasks complete.
 
 -   ✅ `GET /v1/queues`
 -   ✅ `GET /v1/queues/:id`
