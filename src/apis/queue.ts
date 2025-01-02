@@ -183,7 +183,14 @@ queue.post(
 		if (status == null) {
 			throw new HTTPException(422);
 		}
-		subjectForceExecute.next(queueId);
+		if (clusterMode == "ACTIVE" && process.send) {
+			process.send({
+				emit: "FORCE_EXECUTE",
+				queueId
+			});
+		} else {
+			subjectForceExecute.next(queueId);
+		}
 		tasksDb.run(
 			`
             UPDATE queue
@@ -1206,6 +1213,9 @@ function reschedule(): void {
 
 function runMessageEmitter(): void {
 	process.on("message", (message: RecordString) => {
+		if (message.emit == "FORCE_EXECUTE") {
+			subjectForceExecute.next(message.queueId);
+		}
 		if (message.emit == "REVOKE") {
 			subscriptionManager.unsubscribe(message.queueId);
 		}
