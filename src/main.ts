@@ -51,9 +51,9 @@ api.notFound(() => new Response(null, { status: 404 }));
 api.onError(exceptionFilter);
 
 if (env.SWAGGER_UI == "1") {
-	api.get("/swagger", swaggerUI({ url: "/swagger/yaml" }));
+	api.get("/swagger", swaggerUI({ url: "/swagger/yaml", supportedSubmitMethods: [] }));
 	api.get("/swagger/yaml", async (c) => {
-		const content = await file(join(cwd(), "swagger.yaml")).text();
+		const content = await file(join(cwd(), "openapi.yaml")).text();
 		return c.text(content);
 	});
 }
