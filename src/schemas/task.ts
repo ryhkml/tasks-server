@@ -125,7 +125,9 @@ export const taskSchema = z
 					key: z.string().min(1).max(256),
 					secret: z.string().min(1).max(256)
 				})
-			)
+			),
+			// Transport
+			transport: z.optional(z.union([z.literal("fetch"), z.literal("curl"), z.null()]))
 		}),
 		//
 		config: z
@@ -187,9 +189,24 @@ export const taskSchema = z
 					.optional(z.string().min(8).max(256))
 					.default("Tasks-Server/1.0 (compatible; Linux x86_64; +http://tasks-server)"),
 				ipVersion: z.optional(z.union([z.literal(4), z.literal(6)])).default(4),
+				credentials: z.optional(z.union([z.literal("include"), z.literal("omit"), z.literal("same-origin")])),
 				refererUrl: z
 					.optional(z.union([urlHttpSchema, z.string().toUpperCase().pipe(z.literal("AUTO"))]))
 					.default("AUTO"),
+				referrerPolicy: z.optional(
+					z.union([
+						z.literal(""),
+						z.literal("no-referrer"),
+						z.literal("no-referrer-when-downgrade"),
+						z.literal("origin"),
+						z.literal("origin-when-cross-origin"),
+						z.literal("same-origin"),
+						z.literal("strict-origin"),
+						z.literal("strict-origin-when-cross-origin"),
+						z.literal("unsafe-url")
+					])
+				),
+				mode: z.optional(z.union([z.literal("cors"), z.literal("no-cors"), z.literal("same-origin")])),
 				keepAliveDuration: z.optional(z.number().gte(0).lte(259200)).default(30),
 				hsts: z.optional(z.union([z.string().base64(), z.boolean()])),
 				sessionId: z.optional(z.boolean()).default(true),
@@ -419,7 +436,7 @@ export const taskSchema = z
 		)
 	})
 	// Validate date with custom error
-	.superRefine(({ config }, ctx) => {
+	.superRefine(({ httpRequest, config }, ctx) => {
 		const estimateExecutionDate = !!config.executeAt
 			? addSeconds(new Date(config.executeAt), 1)
 			: addSeconds(addMilliseconds(new Date().getTime(), config.executionDelay), 1);
@@ -443,12 +460,33 @@ export const taskSchema = z
 				});
 			}
 		}
+		if (httpRequest.transport == "curl") {
+			if (config.credentials) {
+				ctx.addIssue({
+					message: "Invalid curl option",
+					code: z.ZodIssueCode.custom,
+					path: ["config", "credentials"]
+				});
+			}
+			if (config.referrerPolicy) {
+				ctx.addIssue({
+					message: "Invalid curl option",
+					code: z.ZodIssueCode.custom,
+					path: ["config", "referrerPolicy"]
+				});
+			}
+			if (config.mode) {
+				ctx.addIssue({
+					message: "Invalid curl option",
+					code: z.ZodIssueCode.custom,
+					path: ["config", "mode"]
+				});
+			}
+		}
 	})
 	.transform((v) => {
-		if (v.httpRequest.data) {
-			if (v.httpRequest.method == "GET" || v.httpRequest.method == "DELETE") {
-				v.httpRequest.data = undefined;
-			}
+		if (v.httpRequest.method == "GET" || v.httpRequest.method == "DELETE") {
+			v.httpRequest.data = undefined;
 		}
 		if (v.config.executeAt) {
 			v.config.executionDelay = 0;
@@ -459,6 +497,10 @@ export const taskSchema = z
 		}
 		if (v.config.retry == 0 || v.config.retry == 1) {
 			v.config.retryExponential = false;
+		}
+		if (v.httpRequest.transport != "curl" && v.config.refererUrl == "AUTO") {
+			// @ts-expect-error
+			v.config.refererUrl = undefined;
 		}
 		return v;
 	});

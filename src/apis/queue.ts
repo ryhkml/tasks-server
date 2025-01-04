@@ -391,6 +391,12 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	rawColumn += "method, ";
 	rawValues += "?, ";
 	rawBindings.push(body.httpRequest.method);
+	// Transport
+	if (body.httpRequest.transport == "curl") {
+		rawColumn += "transport, ";
+		rawValues += "?, ";
+		rawBindings.push(body.httpRequest.transport);
+	}
 	// Execute
 	if (body.config.executeAt) {
 		rawColumn += "executeAt, ";
@@ -659,6 +665,23 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 		rawValues += "?, ";
 		rawBindings.push(0);
 	}
+	if (body.httpRequest.transport != "curl") {
+		if (body.config.credentials) {
+			rawColumn += "credentials, ";
+			rawValues += "?, ";
+			rawBindings.push(body.config.credentials);
+		}
+		if (body.config.referrerPolicy) {
+			rawColumn += "referrerPolicy, ";
+			rawValues += "?, ";
+			rawBindings.push(body.config.referrerPolicy);
+		}
+		if (body.config.mode) {
+			rawColumn += "mode, ";
+			rawValues += "?, ";
+			rawBindings.push(body.config.mode);
+		}
+	}
 	//
 	rawColumn = rawColumn.substring(0, rawColumn.length - 2) + ")";
 	rawValues = rawValues.substring(0, rawValues.length - 2) + ")";
@@ -906,7 +929,8 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			authBasic: !!q.authBasic ? JSON.parse(dec(q.authBasic, cipherKey)) : undefined,
 			authDigest: !!q.authDigest ? JSON.parse(dec(q.authDigest, cipherKey)) : undefined,
 			authNtlm: !!q.authNtlm ? JSON.parse(dec(q.authNtlm, cipherKey)) : undefined,
-			authAwsSigv4: !!q.authAwsSigv4 ? JSON.parse(dec(q.authAwsSigv4, cipherKey)) : undefined
+			authAwsSigv4: !!q.authAwsSigv4 ? JSON.parse(dec(q.authAwsSigv4, cipherKey)) : undefined,
+			transport: q.transport
 		},
 		config: {
 			executionDelay: q.executionDelay,
@@ -935,7 +959,10 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 			dohInsecure: !!q.dohInsecure,
 			httpVersion: q.httpVersion,
 			insecure: !!q.insecure,
+			credentials: q.credentials || undefined,
 			refererUrl: !!q.refererUrl ? dec(q.refererUrl, cipherKey) : "AUTO",
+			referrerPolicy: q.referrerPolicy || undefined,
+			mode: q.mode || undefined,
 			redirectAttempts: q.redirectAttempts,
 			keepAliveDuration: q.keepAliveDuration,
 			resolve: !!q.resolve ? JSON.parse(dec(q.resolve, cipherKey)) : undefined,

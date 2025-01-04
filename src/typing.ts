@@ -142,6 +142,7 @@ type ConfigTable = {
 	 */
 	authAwsSigv4: string | null;
 	//
+	transport: "fetch" | "curl" | null;
 	executionDelay: number;
 	executeAt: string | null;
 	executeImmediately: number;
@@ -202,7 +203,20 @@ type ConfigTable = {
 	 * `refererUrl` property must be decrypt first to become readable plain url
 	 */
 	insecure: number;
+	credentials: "include" | "omit" | "same-origin" | null;
 	refererUrl: string | null;
+	referrerPolicy:
+		| ""
+		| "no-referrer"
+		| "no-referrer-when-downgrade"
+		| "origin"
+		| "origin-when-cross-origin"
+		| "same-origin"
+		| "strict-origin"
+		| "strict-origin-when-cross-origin"
+		| "unsafe-url"
+		| null;
+	mode: "cors" | "no-cors" | "same-origin" | null;
 	redirectAttempts: number;
 	keepAliveDuration: number;
 	/**

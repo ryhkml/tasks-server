@@ -2,7 +2,7 @@ import { env, hash, readableStreamToText, spawn, write } from "bun";
 
 import { randomBytes } from "node:crypto";
 
-import { Observable, TimeoutError, catchError, defer, map, throwError, timeout } from "rxjs";
+import { Observable, TimeoutError, catchError, concatMap, defer, map, of, throwError, timeout } from "rxjs";
 import { z } from "zod";
 
 import { inRange, isPlainObject, safeInteger } from "./common";
@@ -11,7 +11,138 @@ import { taskSchema } from "../schemas/task";
 type TaskRequest = z.infer<typeof taskSchema>;
 
 export function http(req: TaskRequest, additionalHeaders?: RecordString): Observable<CurlHttpResponse> {
+	const MAX_SIZE_DATA_RESPONSE = safeInteger(env.MAX_SIZE_DATA_RESPONSE) || 32768;
+
 	const httpId = hash(req.httpRequest.url).toString() + randomBytes(16).toString("hex");
+	const url = !!req.httpRequest.query
+		? new URL(req.httpRequest.url + "?" + new URLSearchParams(req.httpRequest.query).toString()).toString()
+		: new URL(req.httpRequest.url).toString();
+
+	if (req.httpRequest.transport != "curl") {
+		let body: BodyInit;
+		const headers = new Headers();
+		// Body
+		if (req.httpRequest.data) {
+			if (isPlainObject(req.httpRequest.data)) {
+				body = JSON.stringify(req.httpRequest.data);
+				headers.append("content-type", "application/json");
+			} else if (Array.isArray(req.httpRequest.data)) {
+				const form = new FormData();
+				for (let i = 0; i < req.httpRequest.data.length; i++) {
+					const { name, value } = req.httpRequest.data[i];
+					form.append(name.trim(), value.trim());
+				}
+				body = form;
+			} else {
+				body = String(req.httpRequest.data).trim();
+				headers.append("content-type", "plain/text");
+			}
+		}
+		// Headers
+		if (req.httpRequest.headers) {
+			for (const [key, value] of Object.entries(req.httpRequest.headers)) {
+				if (key.toLowerCase().includes("user-agent")) {
+					continue;
+				}
+				headers.append(key.toLowerCase(), value);
+			}
+		}
+		if (additionalHeaders) {
+			for (const [key, value] of Object.entries(additionalHeaders)) {
+				headers.append(key.toLowerCase(), value);
+			}
+		}
+		headers.append("user-agent", req.config.userAgent);
+		const source = defer(() =>
+			fetch(url, {
+				body,
+				method: req.httpRequest.method,
+				headers,
+				cache: "no-cache",
+				keepalive: !!req.config.keepAliveDuration,
+				mode: req.config.mode,
+				credentials: req.config.credentials,
+				referrer: req.config.refererUrl,
+				referrerPolicy: req.config.referrerPolicy
+			})
+		).pipe(
+			timeout({
+				first: !!req.config.timeoutAt ? new Date(req.config.timeoutAt) : undefined,
+				each: req.config.timeout
+			}),
+			catchError((error) => {
+				if (error instanceof TimeoutError) {
+					return throwError(() => ({
+						id: httpId,
+						data: Buffer.from(String(error)).toString("base64"),
+						state: "ERROR",
+						status: 408,
+						statusText: "Timeout error"
+					}));
+				}
+				return throwError(() => ({
+					id: httpId,
+					data: Buffer.from(String(error)).toString("base64"),
+					state: "ERROR",
+					status: 500,
+					statusText: "Internal server error"
+				}));
+			})
+		);
+		// @ts-expect-error
+		return source.pipe(
+			concatMap((res) => {
+				const source = defer(() => res.text()).pipe(
+					map((text) => {
+						const encoder = new TextEncoder();
+						return {
+							data: Buffer.from(text).toString("base64"),
+							size: encoder.encode(text).length
+						};
+					}),
+					catchError((error) =>
+						of({
+							data: Buffer.from(String(error)).toString("base64"),
+							size: 0
+						})
+					)
+				);
+				return source.pipe(
+					map(({ data, size }) => {
+						if (size > MAX_SIZE_DATA_RESPONSE) {
+							throw {
+								id: httpId,
+								data: Buffer.from(
+									"The response size cannot be more than " + MAX_SIZE_DATA_RESPONSE.toString()
+								).toString("base64"),
+								state: "ERROR",
+								status: 422,
+								statusText: "Unprocessable data, the response payload too large"
+							};
+						}
+						if (inRange(res.status, 400, 599)) {
+							throw {
+								id: httpId,
+								data,
+								state: "ERROR",
+								status: res.status,
+								statusText: "Error 4xx-5xx"
+							};
+						}
+						return {
+							id: httpId,
+							data: req.config.traceResponseData ? data : null,
+							state: "SUCCESS",
+							status: res.status,
+							statusText: "Ok"
+						};
+					}),
+					catchError((error) => throwError(() => error))
+				);
+			})
+		);
+	}
+
 	const options = ["-s", "-N"];
 	// Method
 	if (req.httpRequest.method) {
@@ -389,16 +520,12 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 			options.push("--proxy-insecure");
 		}
 	}
-	const url = !!req.httpRequest.query
-		? new URL(req.httpRequest.url + "?" + new URLSearchParams(req.httpRequest.query).toString()).toString()
-		: new URL(req.httpRequest.url).toString();
 	options.push("-w");
 	options.push("&&SPLIT&&%{response_code}&&SPLIT&&%{size_download}");
 	options.push("--url");
 	options.push(url);
 	return defer(() => curl(options)).pipe(
 		map((text) => {
-			const MAX_SIZE_DATA_RESPONSE = safeInteger(env.MAX_SIZE_DATA_RESPONSE) || 32768;
 			const [payload, code, sizeData] = text.split("&&SPLIT&&") as [string, string, string];
 			const status = safeInteger(code);
 			const data = !!payload.trim() ? Buffer.from(payload).toString("base64") : null;
