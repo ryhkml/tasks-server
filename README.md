@@ -47,7 +47,7 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
 ## Getting Started
 
-Make sure you have [bun](https://bun.sh/docs/installation) and [curl](https://curl.se/download.html) installed. Execute the `sh` or `bash` commands demonstrated below.
+Make sure you have a [bun](https://bun.sh/docs/installation) and optional [curl](https://curl.se/download.html). Execute the `sh` or `bash` commands demonstrated below.
 
 To install dependencies, run:
 
@@ -235,7 +235,8 @@ Tasks Server allows configuring custom certificates to modify the curl options [
 {
     "httpRequest": {
         "url": "https://target-service",
-        "method": "POST"
+        "method": "POST",
+        "transport": "curl"
     },
     "config": {
         "executeAt": "Dec 12 2012 12:12:12 AM +07:00",
@@ -261,7 +262,8 @@ When running the Tasks Server in a container environment, you can
     {
         "httpRequest": {
             "url": "https://target-service",
-            "method": "POST"
+            "method": "POST",
+            "transport": "curl"
         },
         "config": {
             "executeAt": "Dec 12 2012 12:12:12 AM +07:00",
