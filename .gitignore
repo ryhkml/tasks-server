@@ -32,5 +32,4 @@ debug.ts
 note.txt
 
 # Bin
-tasks-server
-tasks-server-cluster
+tasks-server-*
