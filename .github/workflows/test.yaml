@@ -1,7 +1,7 @@
-name: CI
+name: Run tests
 on: [push, pull_request]
 jobs:
-  build:
+  test:
     name: test-tasks-server
     runs-on: ubuntu-latest
     steps:
@@ -13,5 +13,5 @@ jobs:
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: sh install.sh
-      - name: Run tests
+      - name: Tests
         run: bun run test
