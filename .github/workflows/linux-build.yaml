@@ -1,5 +1,11 @@
 name: Build single-file executable for Linux
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
   workflow_run:
     workflows: ["Run tests"]
     types:
