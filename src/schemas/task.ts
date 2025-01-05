@@ -404,11 +404,16 @@ export const taskSchema = z
 									/^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])+$/
 								)
 						]),
-						port: z
-							.number()
-							.gte(1)
-							.lte(65535)
-							.refine((v) => v != 22)
+						port: z.optional(
+							z
+								.number()
+								.gte(1)
+								.lte(65535)
+								.refine(
+									(v) => ![20, 21, 22, 23, 25, 53].includes(v),
+									() => ({ message: "Invalid proxy port" })
+								)
+						)
 					})
 				),
 				proxyHeaders: z.optional(recordStringSchema),
