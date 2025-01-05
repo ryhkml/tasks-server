@@ -15,8 +15,8 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 
 	const httpId = hash(req.httpRequest.url).toString() + randomBytes(16).toString("hex");
 	const url = !!req.httpRequest.query
-		? new URL(req.httpRequest.url + "?" + new URLSearchParams(req.httpRequest.query).toString()).toString()
-		: new URL(req.httpRequest.url).toString();
+		? req.httpRequest.url + "?" + new URLSearchParams(req.httpRequest.query).toString()
+		: req.httpRequest.url;
 
 	if (req.httpRequest.transport != "curl") {
 		let body: BodyInit;
@@ -30,11 +30,11 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 				const form = new FormData();
 				for (let i = 0; i < req.httpRequest.data.length; i++) {
 					const { name, value } = req.httpRequest.data[i];
-					form.append(name.trim(), value.trim());
+					form.append(name, value);
 				}
 				body = form;
 			} else {
-				body = String(req.httpRequest.data).trim();
+				body = String(req.httpRequest.data);
 				headers.append("content-type", "plain/text");
 			}
 		}
@@ -44,12 +44,12 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 				if (key.toLowerCase().includes("user-agent")) {
 					continue;
 				}
-				headers.append(key.toLowerCase(), value);
+				headers.append(key, value);
 			}
 		}
 		if (additionalHeaders) {
 			for (const [key, value] of Object.entries(additionalHeaders)) {
-				headers.append(key.toLowerCase(), value);
+				headers.append(key, value);
 			}
 		}
 		headers.append("user-agent", req.config.userAgent);
@@ -323,13 +323,13 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 				continue;
 			}
 			options.push("-H");
-			options.push(key.toLowerCase() + ": " + value);
+			options.push(key + ": " + value);
 		}
 	}
 	if (additionalHeaders) {
 		for (const [key, value] of Object.entries(additionalHeaders)) {
 			options.push("-H");
-			options.push(key.toLowerCase() + ": " + value);
+			options.push(key + ": " + value);
 		}
 	}
 	// Data
@@ -346,20 +346,19 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 				.replace(/\\r/g, "\\r")
 				.replace(/\\t/g, "\\t")
 				.replace(/\\b/g, "\\b")
-				.replace(/\\f/g, "\\f")
-				.trim();
+				.replace(/\\f/g, "\\f");
 			options.push(escapeJsonStr);
 		} else if (Array.isArray(req.httpRequest.data)) {
 			for (let i = 0; i < req.httpRequest.data.length; i++) {
 				const { name, value } = req.httpRequest.data[i];
 				options.push("--form-string");
-				options.push(name.trim() + "=" + value.trim());
+				options.push(name + "=" + value);
 			}
 		} else {
 			options.push("-H");
 			options.push("content-type: plain/text");
 			options.push("-d");
-			options.push(String(req.httpRequest.data).trim());
+			options.push(String(req.httpRequest.data));
 		}
 	}
 	// Cookie
@@ -512,7 +511,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 		if (req.config.proxyHeaders) {
 			for (const [key, value] of Object.entries(req.config.proxyHeaders)) {
 				options.push("--proxy-header");
-				options.push(key.toLowerCase() + ": " + value);
+				options.push(key + ": " + value);
 			}
 		}
 		// Proxy insecure
@@ -528,7 +527,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 		map((text) => {
 			const [payload, code, sizeData] = text.split("&&SPLIT&&") as [string, string, string];
 			const status = safeInteger(code);
-			const data = !!payload.trim() ? Buffer.from(payload).toString("base64") : null;
+			const data = !!payload ? Buffer.from(payload).toString("base64") : null;
 			if (safeInteger(sizeData) > MAX_SIZE_DATA_RESPONSE) {
 				throw {
 					id: httpId,

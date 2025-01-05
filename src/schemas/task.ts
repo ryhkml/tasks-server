@@ -25,9 +25,14 @@ const urlHttpSchema = z
 	.string()
 	.url()
 	.max(1024)
+	.transform((v) => new URL(v).toString())
 	.refine(
 		(v) => {
 			try {
+				const last = v.charAt(v.length - 1);
+				if (last == "/" || last == "?") {
+					return false;
+				}
 				const { protocol } = new URL(v);
 				return protocol == "http:" || protocol == "https:";
 			} catch (_) {
@@ -35,7 +40,7 @@ const urlHttpSchema = z
 			}
 		},
 		{
-			message: "URL must start with either http or https"
+			message: "URL must start with either http or https and cannot use / and ? at the end"
 		}
 	);
 
@@ -61,12 +66,12 @@ export const taskSchema = z
 						.array(
 							z.strictObject({
 								name: z.string().min(1).max(64),
-								value: z.string().min(1).max(512)
+								value: z.string().min(1).max(4096)
 							})
 						)
 						.nonempty()
 						.min(1)
-						.max(16),
+						.max(64),
 					z.record(
 						z
 							.string()
@@ -74,7 +79,7 @@ export const taskSchema = z
 							.max(64)
 							.regex(/^[a-zA-Z0-9\$\_\.\-\[\]]{1,64}$/),
 						z.union([
-							z.union([z.string().max(512), z.number(), z.boolean(), z.null()]),
+							z.union([z.string().max(4096), z.number(), z.boolean(), z.null()]),
 							z.record(
 								z
 									.string()
@@ -82,14 +87,14 @@ export const taskSchema = z
 									.max(64)
 									.regex(/^[a-zA-Z0-9\$\_\.\-\[\]]{1,64}$/),
 								z.union([
-									z.union([z.string().max(512), z.number(), z.boolean(), z.null()]),
+									z.union([z.string().max(4096), z.number(), z.boolean(), z.null()]),
 									z.record(
 										z
 											.string()
 											.min(1)
 											.max(64)
 											.regex(/^[a-zA-Z0-9\$\_\.\-\[\]]{1,64}$/),
-										z.union([z.string().max(512), z.number(), z.boolean(), z.null()])
+										z.union([z.string().max(4096), z.number(), z.boolean(), z.null()])
 									)
 								])
 							)
