@@ -11,10 +11,10 @@ import { addMilliseconds, differenceInMilliseconds, isAfter } from "date-fns";
 import {
 	BehaviorSubject,
 	catchError,
+	concatMap,
 	defer,
 	delayWhen,
 	EMPTY,
-	exhaustMap,
 	expand,
 	filter,
 	finalize,
@@ -23,6 +23,7 @@ import {
 	merge,
 	of,
 	retry,
+	switchMap,
 	take,
 	tap,
 	throwError,
@@ -726,21 +727,12 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 			.pipe(
 				expand((_, i) =>
 					defer(() => connectivity()).pipe(
-						tap((connectivity) => {
-							if (env.LOG == "1") {
-								if (connectivity == "ONLINE") {
-									logInfo("Connectivity online");
-								} else {
-									logWarn("Connectivity offline");
-								}
-							}
-						}),
-						delayWhen(() => (i == 0 ? timer(0) : timer(5000)))
+						delayWhen(() => (i == 0 ? timer(0) : timer(safeInteger(env.CONNECTIVITY_CHECK_INTERVAL))))
 					)
 				),
 				filter((connectivity) => connectivity == "ONLINE"),
 				take(1),
-				exhaustMap(() => {
+				concatMap(() => {
 					let additionalHeaders = { "X-Tasks-Queue-Id": queueId } as RecordString;
 					return defer(() => http(body, additionalHeaders)).pipe(
 						map((res) => {
@@ -1254,7 +1246,7 @@ function updateLastRecord(): void {
 	interval(1000)
 		.pipe(
 			map(() => new Date().getTime().toString()),
-			exhaustMap((ms) =>
+			switchMap((ms) =>
 				defer(() => write(dirname(env.PATH_SQLITE) + "/.lastrecordkeep", ms, { mode: 440 })).pipe(
 					catchError(() => EMPTY)
 				)

@@ -22,6 +22,7 @@ declare module "bun" {
 		BACKUP_CRON_TZ_SQLITE: string;
 		//
 		CONNECTIVITY_HOSTNAME: string;
+		CONNECTIVITY_CHECK_INTERVAL: string;
 		MAX_SIZE_BODY_REQUEST: string;
 		MAX_SIZE_DATA_RESPONSE: string;
 		MAX_THROTTLE_REQUEST: string;
