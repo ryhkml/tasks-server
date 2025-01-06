@@ -16,7 +16,7 @@ jobs:
       - name: Tests
         run: bun run test
   build-linux:
-    name: linux-${{ matrix.target }}-tasks-server
+    name: build-linux-${{ matrix.target }}
     runs-on: ubuntu-latest
     needs: test
     strategy:
