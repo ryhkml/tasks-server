@@ -250,8 +250,8 @@ interface ControlTable {
 	lastRequestAt: number;
 }
 
-type CurlStateHttpResponse = Extract<TaskState, "SUCCESS" | "ERROR">;
-type CurlHttpResponse = {
+type StateHttpResponse = Extract<TaskState, "SUCCESS" | "ERROR">;
+type HttpResponse = {
 	/**
 	 * This id is an http response identifier
 	 */
@@ -260,7 +260,7 @@ type CurlHttpResponse = {
 	 * @returns string base64
 	 */
 	data: string | null;
-	state: CurlStateHttpResponse;
+	state: StateHttpResponse;
 	status: number;
 	statusText: string;
 };

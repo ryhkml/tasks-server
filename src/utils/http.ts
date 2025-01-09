@@ -10,7 +10,7 @@ import { taskSchema } from "../schemas/task";
 
 type TaskRequest = z.infer<typeof taskSchema>;
 
-export function http(req: TaskRequest, additionalHeaders?: RecordString): Observable<CurlHttpResponse> {
+export function http(req: TaskRequest, additionalHeaders?: RecordString): Observable<HttpResponse> {
 	const MAX_SIZE_DATA_RESPONSE = safeInteger(env.MAX_SIZE_DATA_RESPONSE) || 32768;
 
 	const httpId = hash(req.httpRequest.url).toString() + randomBytes(16).toString("hex");

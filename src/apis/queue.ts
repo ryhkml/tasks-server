@@ -745,11 +745,11 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 							next(res) {
 								httpId = res.id;
 							},
-							error(err: CurlHttpResponse) {
+							error(err: HttpResponse) {
 								httpId = err.id;
 							}
 						}),
-						catchError((err: CurlHttpResponse) => {
+						catchError((err: HttpResponse) => {
 							if (err.data) {
 								err.data = enc(err.data, cipherKeyGen(queueId));
 							}
@@ -761,7 +761,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 						}),
 						retry({
 							count: body.config.retry,
-							delay(error: CurlHttpResponse) {
+							delay(error: HttpResponse) {
 								let retryDueTime = 0 as number | Date;
 								let estimateNextRetryAt = 0;
 								const retryingAt = new Date().getTime();
@@ -849,7 +849,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 						);
 					}
 				},
-				error(err: CurlHttpResponse) {
+				error(err: HttpResponse) {
 					stmtQueue.run("ERROR", err.status, err.data, new Date().getTime(), queueId);
 					if (env.LOG == "1") {
 						logError(
