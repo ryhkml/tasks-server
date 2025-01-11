@@ -2,11 +2,8 @@ name: Tests
 on: [push, pull_request]
 jobs:
   test:
-    name: test-tasks-server-${{ matrix.target }}
+    name: test-tasks-server
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        target: [local, objectstorage]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -16,21 +13,29 @@ jobs:
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: sh install.sh
-      - name: Test with local backup and object storage backup
-        run: |
-          if [[ "${{ matrix.target }}" == "local" ]]; then
-            bun run test
-          fi
-          if [[ "${{ matrix.target }}" == "objectstorage" ]]; then
-            NODE_ENV=production bun run init-db.ts -f
-            BACKUP_METHOD_SQLITE="OBJECT_STORAGE" \
-            BACKUP_OBJECT_STORAGE_ENDPOINT="https://storage.googleapis.com" \
-            BACKUP_OBJECT_STORAGE_ACCESS_KEY="${{ secrets.OBJECT_STORAGE_ACCESS_KEY }}" \
-            BACKUP_OBJECT_STORAGE_SECRET_KEY="${{ secrets.OBJECT_STORAGE_SECRET_KEY }}" \
-            BACKUP_OBJECT_STORAGE_BUCKET_NAME="${{ vars.OBJECT_STORAGE_BUCKET_NAME }}" \
-            BACKUP_OBJECT_STORAGE_PATH="${{ vars.BACKUP_OBJECT_STORAGE_PATH }}" \
-            bun --env-file=.env.test test backup
-          fi
+      - name: Test with local backup
+        run: bun run test
+  test-backup:
+    name: backup-to-object-storage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install curl
+        run: sudo apt-get update && sudo apt-get install -y curl
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+      - name: Install dependencies
+        run: sh install.sh
+      - name: Test with object storage backup
+        env:
+          BACKUP_METHOD_SQLITE: LOCAL
+          BACKUP_OBJECT_STORAGE_ENDPOINT: https://storage.googleapis.com
+          BACKUP_OBJECT_STORAGE_ACCESS_KEY: ${{ secrets.OBJECT_STORAGE_ACCESS_KEY }}
+          BACKUP_OBJECT_STORAGE_SECRET_KEY: ${{ secrets.OBJECT_STORAGE_SECRET_KEY }}
+          BACKUP_OBJECT_STORAGE_BUCKET_NAME: ${{ vars.OBJECT_STORAGE_BUCKET_NAME }}
+          BACKUP_OBJECT_STORAGE_PATH: ${{ vars.BACKUP_OBJECT_STORAGE_PATH }}
+        run: bun run test
   build-linux:
     name: build-linux-${{ matrix.target }}
     runs-on: ubuntu-latest
