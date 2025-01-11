@@ -295,7 +295,7 @@ If there is more than one certificate, you can use multiple certificates in one 
 There are two backup methods:
 
 -   **Local**. The local method copies the database file, then moves it to another directory. This method is active by default **or**
--   **Object Storage**. The [Object Storage](https://en.wikipedia.org/wiki/Object_storage) method uploads database files to an Object Storage. To authenticate to Object Storage, a compatible authentication method is required
+-   **Object Storage**. The [object storage](https://en.wikipedia.org/wiki/Object_storage) method uploads the database file to an object storage. To authenticate to Object Storage, a compatible authentication method is required.
 
 ```ts
 type SqliteBackupMethod = "LOCAL" | "OBJECT_STORAGE";
@@ -315,6 +315,14 @@ BACKUP_OBJECT_STORAGE_BUCKET_NAME=
 # Path
 BACKUP_OBJECT_STORAGE_PATH=
 ```
+
+There are several lists of object storage compatibility:
+
+-   Amazon S3
+-   Google Cloud Storage
+-   Cloudflare R2
+-   DigitalOcean Spaces
+-   MinIO **and** many more vendors
 
 Visit [Bun S3](https://bun.sh/docs/api/s3#support-for-s3-compatible-services) documentation for information on Object Storage compatibility.
 
