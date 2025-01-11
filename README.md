@@ -295,22 +295,28 @@ If there is more than one certificate, you can use multiple certificates in one 
 There are two backup methods:
 
 -   **Local**. The local method copies the database file, then moves it to another directory. This method is active by default **or**
--   **Google Cloud Storage**. The Google Cloud Storage method uploads database files to a Google Cloud Storage. To authenticate to Google Cloud Storage, follow the steps below.
+-   **Object Storage**. The [Object Storage](https://en.wikipedia.org/wiki/Object_storage) method uploads database files to an Object Storage. To authenticate to Object Storage, a compatible authentication method is required
 
-    1\. [Create a service](https://cloud.google.com/iam/docs/service-accounts-create#creating) account and do not grant any access\
-    2\. [Create a new key](https://cloud.google.com/iam/docs/keys-create-delete#iam-service-account-keys-create-console) and select the JSON format\
-    3\. Go to Google Cloud Storage, create a bucket\
-    4\. Select a bucket and click Permissions\
-    5\. In the Permissions section, click Grant Access\
-    6\. Enter the service account email, then assign roles **Storage Object User** and **Storage Object Viewer**\
-    7\. Save.
-
-You can set it via env variable
-
-```sh
-# "LOCAL" or "GOOGLE_CLOUD_STORAGE"
-BACKUP_METHOD_SQLITE="LOCAL"
+```ts
+type SqliteBackupMethod = "LOCAL" | "OBJECT_STORAGE";
 ```
+
+```txt
+# Backup method
+BACKUP_METHOD_SQLITE=
+# Endpoint. The S3-compatible service endpoint URL
+BACKUP_OBJECT_STORAGE_ENDPOINT=
+# Access key
+BACKUP_OBJECT_STORAGE_ACCESS_KEY=
+# Secret key
+BACKUP_OBJECT_STORAGE_SECRET_KEY=
+# Bucket name
+BACKUP_OBJECT_STORAGE_BUCKET_NAME=
+# Path
+BACKUP_OBJECT_STORAGE_PATH=
+```
+
+Visit [Bun S3](https://bun.sh/docs/api/s3#support-for-s3-compatible-services) documentation for information on Object Storage compatibility.
 
 ## TODO
 
