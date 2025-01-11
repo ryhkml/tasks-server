@@ -16,7 +16,7 @@ describe("TEST BACKUP", () => {
 	describe.if(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
 		it("should successfully defined env variables for local backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
-			expect(env.BACKUP_DIR_SQLITE).toBeDefined();
+			expect(env.BACKUP_PATH_DIR_SQLITE).toBeDefined();
 			expect(env.BACKUP_METHOD_SQLITE).toBe("LOCAL");
 		});
 	});
@@ -49,7 +49,7 @@ describe("TEST BACKUP", () => {
 				cwd: dirname(pathBakDb)
 			});
 			// Tasks
-			const pathDb1 = env.BACKUP_DIR_SQLITE + "/" + basename(env.PATH_SQLITE);
+			const pathDb1 = env.BACKUP_PATH_DIR_SQLITE + "/" + basename(env.PATH_SQLITE);
 			const db1 = new Database(pathDb1, { strict: true, create: false });
 			const raw1 = db1.query<{ name: string }, [string, string]>(
 				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
@@ -67,7 +67,7 @@ describe("TEST BACKUP", () => {
 			expect(timeframe).not.toBeNull();
 			expect(timeframe?.name).toBe("timeframe");
 			// Throttle
-			const pathDb2 = env.BACKUP_DIR_SQLITE + "/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
+			const pathDb2 = env.BACKUP_PATH_DIR_SQLITE + "/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
 			const db2 = new Database(pathDb2, { strict: true, create: false });
 			const raw2 = db2.query<{ name: string }, [string, string]>(
 				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
@@ -104,8 +104,8 @@ describe("TEST BACKUP", () => {
 			expect(exists).toBeTrue();
 		});
 		it("should successfully restore the database file from object storage (" + hostname + ")", async () => {
-			const sss3 = await client.file(env.BACKUP_OBJECT_STORAGE_PATH + "/" + filename).arrayBuffer();
-			await write("/tmp/tasks/os/" + filename, sss3);
+			const targz = await client.file(env.BACKUP_OBJECT_STORAGE_PATH + "/" + filename).arrayBuffer();
+			await write("/tmp/tasks/os/" + filename, targz);
 			await sleep(1);
 			await extract({
 				file: "/tmp/tasks/os/" + filename,

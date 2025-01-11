@@ -38,8 +38,8 @@ export async function backupDb(method: SqliteBackupMethod = "LOCAL"): Promise<st
 			await bakDbFile.unlink();
 			return filename;
 		}
-		const pathBakDb = env.BACKUP_DIR_SQLITE + "/" + filename;
-		await write(env.BACKUP_DIR_SQLITE + "/.keep", "OK");
+		const pathBakDb = env.BACKUP_PATH_DIR_SQLITE + "/" + filename;
+		await write(env.BACKUP_PATH_DIR_SQLITE + "/.keep", "OK");
 		await create(
 			{
 				cwd: dirname(env.PATH_SQLITE),
