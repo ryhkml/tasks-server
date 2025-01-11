@@ -10,14 +10,13 @@ declare module "bun" {
 		// DB
 		PATH_SQLITE: string;
 		// DB Backup
-		BACKUP_METHOD_SQLITE: "LOCAL" | "GOOGLE_CLOUD_STORAGE";
+		BACKUP_METHOD_SQLITE: "LOCAL" | "OBJECT_STORAGE";
 		BACKUP_DIR_SQLITE: string;
-		BACKUP_GCS_PROJECT_ID_SQLITE: string;
-		BACKUP_GCS_PRIVATE_KEY_SQLITE: string;
-		BACKUP_GCS_CLIENT_ID_SQLITE: string;
-		BACKUP_GCS_CLIENT_EMAIL_SQLITE: string;
-		BACKUP_BUCKET_NAME_SQLITE: string;
-		BACKUP_BUCKET_DIR_SQLITE: string;
+		BACKUP_OBJECT_STORAGE_ENDPOINT: string;
+		BACKUP_OBJECT_STORAGE_ACCESS_KEY: string;
+		BACKUP_OBJECT_STORAGE_SECRET_KEY: string;
+		BACKUP_OBJECT_STORAGE_BUCKET_NAME: string;
+		BACKUP_OBJECT_STORAGE_PATH: string;
 		BACKUP_CRON_PATTERN_SQLITE: string;
 		BACKUP_CRON_TZ_SQLITE: string;
 		//
@@ -46,7 +45,6 @@ type Var = {
 };
 
 type RecordString = Record<string, string>;
-
 type TaskState = "SUCCESS" | "REVOKED" | "ERROR" | "PAUSED" | "RUNNING";
 type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 type HttpVersion = "0.9" | "1.0" | "1.1" | "2" | "2-prior-knowledge";
@@ -54,7 +52,7 @@ type TlsVersion = "1.0" | "1.1" | "1.2" | "1.3";
 
 type ClusterMode = "ACTIVE" | "INACTIVE";
 type ConnectivityStatus = "ONLINE" | "OFFLINE";
-type SqliteBackupMethod = "LOCAL" | "GOOGLE_CLOUD_STORAGE";
+type SqliteBackupMethod = "LOCAL" | "OBJECT_STORAGE";
 
 interface OwnerTable {
 	id: string;

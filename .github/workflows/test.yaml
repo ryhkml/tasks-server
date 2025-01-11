@@ -2,8 +2,11 @@ name: Tests
 on: [push, pull_request]
 jobs:
   test:
-    name: test-tasks-server
+    name: test-tasks-server-${{ matrix.target }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [local, objectstorage]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -12,9 +15,23 @@ jobs:
       - name: Install bun
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
-        run: sh install.sh
-      - name: Tests
-        run: bun run test
+        run: |
+          sh install.sh
+          NODE_ENV=production bun init-db.ts -f
+      - name: Test with local backup and object storage backup
+        run: |
+          if [[ "${{ matrix.target }}" == "local" ]]; then
+            bun run test
+          fi
+          if [[ "${{ matrix.target }}" == "objectstorage" ]]; then
+            BACKUP_METHOD_SQLITE="OBJECT_STORAGE" \
+            BACKUP_OBJECT_STORAGE_ENDPOINT="https://storage.googleapis.com" \
+            BACKUP_OBJECT_STORAGE_ACCESS_KEY="${{ secrets.OBJECT_STORAGE_ACCESS_KEY }}" \
+            BACKUP_OBJECT_STORAGE_SECRET_KEY="${{ secrets.OBJECT_STORAGE_SECRET_KEY }}" \
+            BACKUP_OBJECT_STORAGE_BUCKET_NAME="${{ vars.OBJECT_STORAGE_BUCKET_NAME }}" \
+            BACKUP_OBJECT_STORAGE_PATH="${{ vars.BACKUP_OBJECT_STORAGE_PATH }}" \
+            bun --env-file=.env.test test backup
+          fi
   build-linux:
     name: build-linux-${{ matrix.target }}
     runs-on: ubuntu-latest

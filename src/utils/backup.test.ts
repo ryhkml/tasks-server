@@ -1,11 +1,10 @@
-import { env, file, sleep, write } from "bun";
+import { env, file, S3Client, sleep, write } from "bun";
 import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 
 import { basename, dirname } from "node:path";
 import { rm } from "node:fs/promises";
 
-import { Bucket, Storage } from "@google-cloud/storage";
 import { extract } from "tar";
 
 import { backupDb } from "./backup";
@@ -18,30 +17,26 @@ describe("TEST BACKUP", () => {
 		it("should successfully defined env variables for local backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
 			expect(env.BACKUP_DIR_SQLITE).toBeDefined();
-			expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
 			expect(env.BACKUP_METHOD_SQLITE).toBe("LOCAL");
 		});
 	});
 
-	describe.if(env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE")("", () => {
-		it("should successfully defined env variables for Google Cloud Storage backup", () => {
+	describe.if(env.BACKUP_METHOD_SQLITE == "OBJECT_STORAGE")("", () => {
+		it("should successfully defined env variables for object storage backup", () => {
 			expect(env.PATH_SQLITE).toBeDefined();
-			expect(env.BACKUP_METHOD_SQLITE).toBeDefined();
-			expect(env.BACKUP_METHOD_SQLITE).toBe("GOOGLE_CLOUD_STORAGE");
-			expect(env.BACKUP_GCS_PROJECT_ID_SQLITE).toBeDefined();
-			expect(env.BACKUP_GCS_PRIVATE_KEY_SQLITE).toBeDefined();
-			expect(env.BACKUP_GCS_CLIENT_ID_SQLITE).toBeDefined();
-			expect(env.BACKUP_GCS_CLIENT_EMAIL_SQLITE).toBeDefined();
-			expect(env.BACKUP_BUCKET_NAME_SQLITE).toBeDefined();
-			expect(env.BACKUP_BUCKET_DIR_SQLITE).toBeDefined();
+			expect(env.BACKUP_METHOD_SQLITE).toBe("OBJECT_STORAGE");
+			expect(env.BACKUP_OBJECT_STORAGE_ENDPOINT).toBeDefined();
+			expect(env.BACKUP_OBJECT_STORAGE_ACCESS_KEY).toBeDefined();
+			expect(env.BACKUP_OBJECT_STORAGE_SECRET_KEY).toBeDefined();
+			expect(env.BACKUP_OBJECT_STORAGE_BUCKET_NAME).toBeDefined();
+			expect(env.BACKUP_OBJECT_STORAGE_PATH).toBeDefined();
 		});
 	});
 
 	describe.if(env.BACKUP_METHOD_SQLITE == "LOCAL")("", () => {
 		let pathBakDb = "";
 		beforeAll(async () => {
-			const path = await backupDb();
-			pathBakDb = path;
+			pathBakDb = await backupDb();
 		});
 		it("should successfully backup the database file to another directory", async () => {
 			const isExistsBakDb = await file(pathBakDb).exists();
@@ -89,39 +84,34 @@ describe("TEST BACKUP", () => {
 		});
 	});
 
-	describe.if(env.BACKUP_METHOD_SQLITE == "GOOGLE_CLOUD_STORAGE")("", () => {
-		let pathBakDb = "";
-		let bucket: Bucket;
+	describe.if(env.BACKUP_METHOD_SQLITE == "OBJECT_STORAGE")("", () => {
+		let filename = "";
+		let client: S3Client;
+		const { hostname } = new URL(env.BACKUP_OBJECT_STORAGE_ENDPOINT || "http://localhost");
 		beforeAll(async () => {
-			const storage = new Storage({
-				projectId: env.BACKUP_GCS_PROJECT_ID_SQLITE,
-				credentials: {
-					private_key: env.BACKUP_GCS_PRIVATE_KEY_SQLITE,
-					client_id: env.BACKUP_GCS_CLIENT_ID_SQLITE,
-					client_email: env.BACKUP_GCS_CLIENT_EMAIL_SQLITE,
-					type: "service_account"
-				},
-				timeout: 30000
+			filename = await backupDb("OBJECT_STORAGE");
+			client = new S3Client({
+				accessKeyId: env.BACKUP_OBJECT_STORAGE_ACCESS_KEY,
+				secretAccessKey: env.BACKUP_OBJECT_STORAGE_SECRET_KEY,
+				bucket: env.BACKUP_OBJECT_STORAGE_BUCKET_NAME,
+				endpoint: env.BACKUP_OBJECT_STORAGE_ENDPOINT,
+				region: env.S3_REGION || env.AWS_REGION,
+				sessionToken: env.S3_SESSION_TOKEN || env.AWS_SESSION_TOKEN
 			});
-			bucket = storage.bucket(env.BACKUP_BUCKET_NAME_SQLITE!);
-			const path = await backupDb("GOOGLE_CLOUD_STORAGE");
-			pathBakDb = path;
 		});
-		it("should successfully backup the database file to Google Cloud Storage", async () => {
-			const [exists] = await bucket.file(env.BACKUP_BUCKET_DIR_SQLITE + "/" + basename(pathBakDb)).exists();
+		it("should successfully backup the database file to object storage (" + hostname + ")", async () => {
+			const exists = await client.file(env.BACKUP_OBJECT_STORAGE_PATH + "/" + filename).exists();
 			expect(exists).toBeTrue();
 		});
-		it("should successfully restore the database file from Google Cloud Storage", async () => {
-			const pathBucketBakDb = env.BACKUP_BUCKET_DIR_SQLITE + "/" + basename(pathBakDb);
-			const [fileBakDb] = await bucket.file(pathBucketBakDb).download();
-			await write("/tmp/tasks/gcs/" + basename(pathBakDb), fileBakDb.buffer);
+		it("should successfully restore the database file from object storage (" + hostname + ")", async () => {
+			const sss3 = await client.file(env.BACKUP_OBJECT_STORAGE_PATH + "/" + filename).arrayBuffer();
+			await write("/tmp/tasks/os/" + filename, sss3);
 			await sleep(1);
 			await extract({
-				file: pathBakDb,
-				cwd: "/tmp/tasks/gcs"
+				file: "/tmp/tasks/os/" + filename,
+				cwd: "/tmp/tasks/os"
 			});
-			// Tasks
-			const pathDb1 = "/tmp/tasks/gcs/" + basename(env.PATH_SQLITE);
+			const pathDb1 = "/tmp/tasks/os/" + basename(env.PATH_SQLITE);
 			const db1 = new Database(pathDb1, { strict: true, create: false });
 			const raw1 = db1.query<{ name: string }, [string, string]>(
 				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
@@ -139,7 +129,7 @@ describe("TEST BACKUP", () => {
 			expect(timeframe).not.toBeNull();
 			expect(timeframe?.name).toBe("timeframe");
 			// Throttle
-			const pathDb2 = "/tmp/tasks/gcs/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
+			const pathDb2 = "/tmp/tasks/os/" + basename(env.PATH_SQLITE).replace(".db", "-throttle.db");
 			const db2 = new Database(pathDb2, { strict: true, create: false });
 			const raw2 = db2.query<{ name: string }, [string, string]>(
 				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
@@ -150,8 +140,8 @@ describe("TEST BACKUP", () => {
 		});
 		afterAll(async () => {
 			await Promise.all([
-				bucket.file(env.BACKUP_BUCKET_DIR_SQLITE + "/" + basename(pathBakDb)).delete(),
-				rm("/tmp/tasks/gcs", {
+				client.file(env.BACKUP_OBJECT_STORAGE_PATH + "/" + filename).unlink(),
+				rm("/tmp/tasks/os", {
 					force: true,
 					recursive: true
 				})
