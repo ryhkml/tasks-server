@@ -27,9 +27,13 @@ jobs:
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
         run: sh install.sh
+      - name: Init DB
+        env:
+          NODE_ENV: production
+        run: bun run init-db.ts -f
       - name: Test with object storage backup
         env:
-          BACKUP_METHOD_SQLITE: LOCAL
+          BACKUP_METHOD_SQLITE: OBJECT_STORAGE
           BACKUP_OBJECT_STORAGE_ENDPOINT: https://storage.googleapis.com
           BACKUP_OBJECT_STORAGE_ACCESS_KEY: ${{ secrets.OBJECT_STORAGE_ACCESS_KEY }}
           BACKUP_OBJECT_STORAGE_SECRET_KEY: ${{ secrets.OBJECT_STORAGE_SECRET_KEY }}
