@@ -15,15 +15,14 @@ jobs:
       - name: Install bun
         uses: oven-sh/setup-bun@v2
       - name: Install dependencies
-        run: |
-          sh install.sh
-          NODE_ENV=production bun init-db.ts -f
+        run: sh install.sh
       - name: Test with local backup and object storage backup
         run: |
           if [[ "${{ matrix.target }}" == "local" ]]; then
             bun run test
           fi
           if [[ "${{ matrix.target }}" == "objectstorage" ]]; then
+            NODE_ENV=production bun run init-db.ts -f
             BACKUP_METHOD_SQLITE="OBJECT_STORAGE" \
             BACKUP_OBJECT_STORAGE_ENDPOINT="https://storage.googleapis.com" \
             BACKUP_OBJECT_STORAGE_ACCESS_KEY="${{ secrets.OBJECT_STORAGE_ACCESS_KEY }}" \
