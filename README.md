@@ -4,7 +4,7 @@
     </h1>
 </div>
 
-Tasks Server is an on-premise task management service designed to execute and distribute tasks efficiently. A task is essentially an object representing a resource intended for one-time use. You can request a task, and they will be executed at a later time.
+Tasks Server is a self-hosted task management service designed to execute and distribute tasks efficiently. A task is essentially an object representing a resource intended for one-time use. You can request tasks, which will be executed at a later time.
 
 <br>
 
@@ -17,7 +17,7 @@ Tasks Server is an on-premise task management service designed to execute and di
 1. HTTP requests with selected http curl options
 2. Configurable retry mechanism
 3. Custom scheduling options
-4. Automatically reschedules tasks if the server shuts down unexpectedly
+4. Automatically reschedules tasks if the server shuts down unexpectedly.
 
 There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
@@ -47,7 +47,7 @@ There are two comparison tables that compare Pub/Sub and the Cron Job Scheduler.
 
 ## Getting Started
 
-Make sure you have a [bun](https://bun.sh/docs/installation) and optional [curl](https://curl.se/download.html). Execute the `sh` or `bash` commands demonstrated below.
+Ensure that you have [bun](https://bun.sh/docs/installation), with [curl](https://curl.se/download.html) being optional. Then execute the `sh` or `bash` commands shown below.
 
 To install dependencies, run:
 
@@ -276,7 +276,7 @@ When running the Tasks Server in a container environment, you can
     }
     ```
 
-If there is more than one certificate, you can use multiple certificates in one file
+If there are multiple certificates, you can include them all in a single file:
 
 ```txt
 -----BEGIN CERTIFICATE-----
