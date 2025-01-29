@@ -16,7 +16,7 @@ sed -i "s|9220|9420|" .env.production
 sed -i "s|.database/tasks-dev.db|.database/tasks.db|" .env.production
 echo ".env.production file has been created"
 
-bun install --frozen-lockfile
+bun install --save-text-lockfile
 bun --env-file=.env.development run init-db.ts
 
 echo "Installation complete"
