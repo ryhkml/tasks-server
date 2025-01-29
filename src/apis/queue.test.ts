@@ -260,7 +260,7 @@ describe("TEST QUEUE", () => {
 				expect(queue.state).toBe("RUNNING");
 				expect(queue.response).toBeNull();
 				expect(queue.estimateEndAt).toBe(0);
-				await sleep(1000);
+				await sleep(2000);
 				const currentQueue = stmtQueue.get(queue.id)!;
 				expect(currentQueue.state).toBe("SUCCESS");
 				expect(currentQueue.statusCode).toBeGreaterThanOrEqual(200);

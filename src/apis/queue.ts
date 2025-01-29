@@ -1,6 +1,6 @@
 import { env, write } from "bun";
 
-import { readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 
 import { Hono } from "hono";
@@ -827,10 +827,14 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 					);
 				}),
 				finalize(() => {
-					rmSync("/tmp/" + httpId, {
-						recursive: true,
-						force: true
-					});
+					try {
+						rmSync("/tmp/tasks/" + httpId, {
+							recursive: true,
+							force: true
+						});
+					} catch (e) {
+						// Noop
+					}
 					subscriptionManager.unsubscribe(queueId);
 				})
 			)
@@ -1042,6 +1046,9 @@ function cipherKeyGen(id: string): string {
 }
 
 function reschedule(): void {
+	if (!existsSync("/tmp/tasks")) {
+		write("/tmp/tasks/.keep", "");
+	}
 	let backupJob: Cron | null = Cron(
 		env.BACKUP_CRON_PATTERN_SQLITE || "0 0 * * *",
 		{

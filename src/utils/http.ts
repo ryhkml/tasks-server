@@ -172,7 +172,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 			options.push(req.config.ca);
 		} else {
 			const dataCa = Buffer.from(req.config.ca, "base64").toString("utf-8");
-			const pathCa = "/tmp/" + httpId + "/ca/ca.crt";
+			const pathCa = "/tmp/tasks/" + httpId + "/ca/ca.crt";
 			write(pathCa, dataCa, { mode: 440 });
 			options.push("--cacert");
 			options.push(pathCa);
@@ -200,7 +200,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 			}
 		} else {
 			const dataCert = Buffer.from(req.config.cert.value, "base64").toString("utf-8");
-			const pathCert = "/tmp/" + httpId + "/cert/cert." + type;
+			const pathCert = "/tmp/tasks/" + httpId + "/cert/cert." + type;
 			write(pathCert, dataCert, { mode: 440 });
 			options.push("--cert");
 			if (password) {
@@ -227,7 +227,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 			options.push(req.config.key);
 		} else {
 			const dataKey = Buffer.from(req.config.key, "base64").toString("utf-8");
-			const pathKey = "/tmp/" + httpId + "/cert/key." + type;
+			const pathKey = "/tmp/tasks/" + httpId + "/cert/key." + type;
 			write(pathKey, dataKey, { mode: 440 });
 			options.push("--key");
 			options.push(pathKey);
@@ -371,7 +371,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 			}
 		} else {
 			const dataCookie = Buffer.from(req.httpRequest.cookie, "base64").toString("utf-8");
-			const pathCookie = "/tmp/" + httpId + "/storage/cookie.txt";
+			const pathCookie = "/tmp/tasks/" + httpId + "/storage/cookie.txt";
 			write(pathCookie, dataCookie, { mode: 440 });
 			options.push("-b");
 			options.push(pathCookie);
@@ -454,7 +454,7 @@ export function http(req: TaskRequest, additionalHeaders?: RecordString): Observ
 		options.push("--hsts");
 		if (typeof req.config.hsts === "string") {
 			const dataHsts = Buffer.from(req.config.hsts, "base64").toString("utf-8");
-			const pathHsts = "/tmp/" + httpId + "/hsts/hsts.txt";
+			const pathHsts = "/tmp/tasks/" + httpId + "/hsts/hsts.txt";
 			write(pathHsts, dataHsts, { mode: 440 });
 			options.push(pathHsts);
 		} else {

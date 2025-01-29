@@ -1,3 +1,4 @@
+import { env } from "bun";
 import { Context } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { HTTPResponseError, TypedResponse } from "hono/types";
@@ -13,6 +14,10 @@ type JSONRespondReturn<T extends JSONValue | SimplifyDeepArray<unknown> | Invali
 type JSONRespondExceptionFilter = JSONRespondReturn<{ action: string; message: string | object }, StatusCode>;
 
 export function exceptionFilter(e: Error | HTTPResponseError, c: Context): JSONRespondExceptionFilter {
+	if (env.LOG == "1") {
+		console.error(e);
+	}
+
 	if (e instanceof HTTPException) {
 		if (e.status == 400) {
 			return c.json(

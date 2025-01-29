@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 import { timer } from "rxjs";
 
@@ -39,6 +39,9 @@ describe("TEST SUBSCRIPTION", () => {
 		it("should unsuccessfully unsubscribe subscription", () => {
 			const unsubscribed = subscriptionManager.unsubscribe("someid");
 			expect(unsubscribed).toBeFalse();
+		});
+		afterAll(() => {
+			subscriptionManager.unsubscribeAll();
 		});
 	});
 
