@@ -8,7 +8,7 @@ WORKDIR /build
 COPY tsconfig.json ./
 COPY package.json ./
 COPY init-db.ts ./
-COPY bun.lockb ./
+COPY bun.lock ./
 COPY bunfig.toml ./
 COPY src ./src/
 COPY .env.production ./.env
