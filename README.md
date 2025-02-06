@@ -112,30 +112,30 @@ You can use absolute path or current working path, for example:
 .database/tasks.db
 ```
 
-## API
+## Endpoints
 
-### Owner
+### Task
 
-Each owner can have a maximum of 1000 tasks in queue.
+Each task name can have a maximum of 1000 tasks in queue.
 
--   ✅ `GET /v1/owners/:name`
--   ✅ `DELETE /v1/owners/:name`
--   ✅ `POST /v1/owners/register`
+-   ✅ `GET /v1/tasks/:name` - Get a task name
+-   ✅ `DELETE /v1/tasks/:name` - Delete a task name
+-   ✅ `POST /v1/tasks/register` - Register a task name to create a queue
 
 ### Queue
 
-A queue is a collection of tasks scheduled for later execution. Queues can be paused, resumed, and forced to execute. Their size decreases as tasks complete.
+A queue is a collection of tasks scheduled for later execution. Queues can be paused, resumed, and forced to execute.
 
--   ✅ `GET /v1/queues`
--   ✅ `GET /v1/queues/:id`
--   ❌ `PATCH /v1/queues/:id`
--   ✅ `DELETE /v1/queues/:id`
--   ❌ `GET /v1/queues/:id/config`
--   ✅ `PATCH /v1/queues/:id/pause`
--   ✅ `PATCH /v1/queues/:id/resume`
--   ✅ `PATCH /v1/queues/:id/revoke`
--   ✅ `POST /v1/queues/register`
--   ✅ `POST /v1/queues/:id/execute`
+-   ✅ `GET /v1/queues` - Get a list of all tasks in queue
+-   ✅ `GET /v1/queues/:id` - Get a task in queue
+-   ❌ `PATCH /v1/queues/:id` - Edit a task in queue
+-   ✅ `DELETE /v1/queues/:id` - Delete a task history in queue
+-   ❌ `GET /v1/queues/:id/config` - Get a task config in queue
+-   ✅ `PATCH /v1/queues/:id/pause` - Pause a task in queue
+-   ✅ `PATCH /v1/queues/:id/resume` - Resume a task in queue
+-   ✅ `PATCH /v1/queues/:id/revoke` - Revoke a task in queue
+-   ✅ `POST /v1/queues/register` - Register task execution
+-   ✅ `POST /v1/queues/:id/execute` - Force execute a task in queue
 
 An example of requesting a task:
 
@@ -144,7 +144,7 @@ curl -X POST http://localhost:9420/v1/queues/register \
     -d "..." \
     -H "Authorization: Bearer <SECRET_KEY>" \
     -H "Content-Type: application/json" \
-    -H "X-Tasks-Owner-Id: <OWNER_ID>"
+    -H "X-Task-Id: <TASK_ID>"
 ```
 
 Payload:

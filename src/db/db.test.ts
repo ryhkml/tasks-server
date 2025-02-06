@@ -20,10 +20,12 @@ describe("TEST DATABASE", () => {
 		});
 
 		it("should successfully query to the tasks database", () => {
-			const stmt = tasksDb.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
-			const owner = stmt.get("table", "owner");
-			expect(owner).not.toBeNull();
-			expect(owner?.name).toBe("owner");
+			const stmt = tasksDb.query<{ name: string }, [string, string]>(
+				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
+			);
+			const task = stmt.get("table", "task");
+			expect(task).not.toBeNull();
+			expect(task?.name).toBe("task");
 			const queue = stmt.get("table", "queue");
 			expect(queue).not.toBeNull();
 			expect(queue?.name).toBe("queue");
@@ -33,11 +35,13 @@ describe("TEST DATABASE", () => {
 		});
 
 		it("should successfully query to the throttle database", () => {
-    		const db = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
-                create: false,
-                strict: true
-            });
-			const raw = db.query<{ name: string }, [string, string]>("SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2");
+			const db = new Database(env.PATH_SQLITE.replace(".db", "-throttle.db"), {
+				create: false,
+				strict: true
+			});
+			const raw = db.query<{ name: string }, [string, string]>(
+				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
+			);
 			const control = raw.get("table", "control");
 			expect(control).not.toBeNull();
 			expect(control?.name).toBe("control");

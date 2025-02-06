@@ -38,7 +38,7 @@ type Var = {
 	Variables: {
 		clientId: string;
 		ip: string;
-		ownerId: string;
+		taskId: string;
 		todayAt: number;
 		userAgent: string | null;
 	};
@@ -54,7 +54,7 @@ type ClusterMode = "ACTIVE" | "INACTIVE";
 type ConnectivityStatus = "ONLINE" | "OFFLINE";
 type SqliteBackupMethod = "LOCAL" | "OBJECT_STORAGE";
 
-interface OwnerTable {
+interface TaskTable {
 	id: string;
 	name: string;
 	createdAt: number;
@@ -65,7 +65,7 @@ interface OwnerTable {
 
 interface QueueTable {
 	id: string;
-	ownerId: string;
+	taskId: string;
 	state: TaskState;
 	statusCode: number;
 	createdAt: number;

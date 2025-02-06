@@ -18,15 +18,15 @@ import { logWarn } from "../utils/logger";
 import queue from "./queue";
 
 type TaskRequest = z.infer<typeof taskSchema>;
-type Queue = Omit<QueueTable, "ownerId" | "metadata"> & { metadata: RecordString | null };
+type Queue = Omit<QueueTable, "taskId" | "metadata"> & { metadata: RecordString | null };
 
 describe("TEST QUEUE", () => {
 	logWarn("If an error occurs during this test, ensure your internet connection is stable");
 
-	let ownerId = "";
+	let taskId = "";
 	let key = "";
 
-	const ownerName = "test-queue";
+	const taskName = "notif-handler";
 	const todayAt = new Date().getTime();
 
 	const stmtQueue = tasksDb.prepare<QueueTable, string>("SELECT * FROM queue WHERE id = ?");
@@ -46,15 +46,14 @@ describe("TEST QUEUE", () => {
 	api.basePath("/v1").route("/queues", queue);
 
 	beforeAll(async () => {
-		ownerId = ulid(todayAt);
+		taskId = ulid(todayAt);
 		const alphabet = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 64);
 		key = alphabet();
 		const secretKey = await password.hash(key);
-		// Register owner
-		tasksDb.run("INSERT INTO owner (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [
-			ownerId,
+		tasksDb.run("INSERT INTO task (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [
+			taskId,
 			secretKey,
-			ownerName,
+			taskName,
 			todayAt
 		]);
 		for (let i = 1; i <= 3; i++) {
@@ -93,7 +92,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queues = (await res.json()) as Queue[];
@@ -131,7 +130,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queues = (await res.json()) as Queue[];
@@ -149,7 +148,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(400);
@@ -176,7 +175,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -190,7 +189,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -207,7 +206,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -225,7 +224,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -252,7 +251,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -287,7 +286,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -323,7 +322,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -352,7 +351,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -382,7 +381,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -418,7 +417,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -448,7 +447,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -475,7 +474,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -502,7 +501,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -530,7 +529,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -566,7 +565,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -602,7 +601,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -638,7 +637,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(201);
@@ -668,7 +667,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -700,7 +699,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -733,7 +732,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -769,7 +768,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -805,7 +804,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(400);
@@ -833,7 +832,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(400);
@@ -860,7 +859,7 @@ describe("TEST QUEUE", () => {
 					Authorization: "Bearer " + key,
 					"Cache-Control": "no-cache, no-store, must-revalidate",
 					"Content-Type": "application/json",
-					"X-Tasks-Owner-Id": ownerId
+					"X-Task-Id": taskId
 				})
 			});
 			expect(res.status).toBe(400);
@@ -868,7 +867,7 @@ describe("TEST QUEUE", () => {
 
 		describe("", () => {
 			beforeEach(() => {
-				tasksDb.run("UPDATE owner SET tasksInQueue = ?1 WHERE id = ?2", [1000, ownerId]);
+				tasksDb.run("UPDATE task SET tasksInQueue = ?1 WHERE id = ?2", [1000, taskId]);
 			});
 			it("should unsuccessfully register due to number of tasks in queue is greater than the limit", async () => {
 				const body: TaskRequest = {
@@ -889,13 +888,13 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				expect(res.status).toBe(422);
 			});
 			afterEach(async () => {
-				tasksDb.run("UPDATE owner SET tasksInQueue = ?1 WHERE id = ?2", [0, ownerId]);
+				tasksDb.run("UPDATE task SET tasksInQueue = ?1 WHERE id = ?2", [0, taskId]);
 				await sleep(1);
 			});
 		});
@@ -924,7 +923,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const data = (await res.json()) as Queue;
@@ -938,7 +937,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const data = (await res.json()) as { status: "Done" };
@@ -959,7 +958,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				await res.json();
@@ -990,7 +989,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1004,7 +1003,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as { status: "Done" };
@@ -1021,7 +1020,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 			});
@@ -1036,7 +1035,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -1053,7 +1052,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -1084,7 +1083,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1096,7 +1095,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 			});
@@ -1108,7 +1107,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1123,7 +1122,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 			});
@@ -1151,7 +1150,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1163,7 +1162,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				setSystemTime(new Date("Jan 2 6969"));
@@ -1176,7 +1175,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1195,7 +1194,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 			});
@@ -1210,7 +1209,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -1227,7 +1226,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -1258,7 +1257,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1272,7 +1271,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as { status: "Done" };
@@ -1303,7 +1302,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1316,7 +1315,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 			});
@@ -1328,7 +1327,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as { status: "Done" };
@@ -1352,7 +1351,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -1369,7 +1368,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -1400,7 +1399,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1414,7 +1413,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as { status: "Done" };
@@ -1445,7 +1444,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as Queue;
@@ -1457,7 +1456,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 			});
@@ -1469,7 +1468,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				const queue = (await res.json()) as { status: "Done" };
@@ -1489,7 +1488,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;
@@ -1506,7 +1505,7 @@ describe("TEST QUEUE", () => {
 						Authorization: "Bearer " + key,
 						"Cache-Control": "no-cache, no-store, must-revalidate",
 						"Content-Type": "application/json",
-						"X-Tasks-Owner-Id": ownerId
+						"X-Task-Id": taskId
 					})
 				});
 				(await res.json()) as Queue;

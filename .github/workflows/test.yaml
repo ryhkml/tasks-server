@@ -1,5 +1,19 @@
 name: Tests
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "**/*"
+      - "!.git*"
+      - "!diagram.png"
+      - "!openapi.yaml"
+      - "!README.md"
+  pull_request:
+    paths:
+      - "**/*"
+      - "!.git*"
+      - "!diagram.png"
+      - "!openapi.yaml"
+      - "!README.md"
 jobs:
   test:
     name: test-tasks-server

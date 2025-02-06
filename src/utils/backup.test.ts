@@ -54,9 +54,9 @@ describe("TEST BACKUP", () => {
 			const raw1 = db1.query<{ name: string }, [string, string]>(
 				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
 			);
-			const owner = raw1.get("table", "owner");
-			expect(owner).not.toBeNull();
-			expect(owner?.name).toBe("owner");
+			const task = raw1.get("table", "task");
+			expect(task).not.toBeNull();
+			expect(task?.name).toBe("task");
 			const queue = raw1.get("table", "queue");
 			expect(queue).not.toBeNull();
 			expect(queue?.name).toBe("queue");
@@ -116,9 +116,9 @@ describe("TEST BACKUP", () => {
 			const raw1 = db1.query<{ name: string }, [string, string]>(
 				"SELECT name FROM sqlite_master WHERE type = ?1 AND name = ?2"
 			);
-			const owner = raw1.get("table", "owner");
-			expect(owner).not.toBeNull();
-			expect(owner?.name).toBe("owner");
+			const task = raw1.get("table", "task");
+			expect(task).not.toBeNull();
+			expect(task?.name).toBe("task");
 			const queue = raw1.get("table", "queue");
 			expect(queue).not.toBeNull();
 			expect(queue?.name).toBe("queue");

@@ -12,10 +12,10 @@ import { tasksDb } from "../db/db";
 import { exceptionFilter } from "./exception-filter";
 
 describe("TEST AUTH", () => {
-	
 	const todayAt = new Date().getTime();
-	const ownerName = "dummy";
-	let ownerId = "";
+	const taskName = "dummy";
+
+	let taskId = "";
 	let key = "";
 	let secretKey = "";
 
@@ -28,33 +28,28 @@ describe("TEST AUTH", () => {
 
 	api.onError(exceptionFilter);
 
-	api.get(
-		"/test/auth",
-		tasksAuth(),
-		(c) => {
-			return c.text("Done");
-		}
-	);
+	api.get("/test/auth", tasksAuth(), (c) => {
+		return c.text("Done");
+	});
 
 	beforeAll(async () => {
-		ownerId = ulid(todayAt);
+		taskId = ulid(todayAt);
 		const alphabet = customAlphabet("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", 64);
 		key = alphabet();
 		secretKey = await password.hash(key);
-		// Register owner
-		tasksDb.run("INSERT INTO owner (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [
-			ownerId,
+		tasksDb.run("INSERT INTO task (id, key, name, createdAt) VALUES (?1, ?2, ?3, ?4)", [
+			taskId,
 			secretKey,
-			ownerName,
+			taskName,
 			todayAt
 		]);
 	});
-	
-	it("should successfully validate owner id and return a ULID", () => {
+
+	it("should successfully validate task id and return a ULID", () => {
 		const schema = z.string().ulid();
-		const result = schema.safeParse(ownerId);
-		expect(ownerId).not.toBeEmpty();
-		expect(ownerId).toBeDefined();
+		const result = schema.safeParse(taskId);
+		expect(taskId).not.toBeEmpty();
+		expect(taskId).toBeDefined();
 		expect(result.success).toBeTrue();
 	});
 
@@ -71,9 +66,9 @@ describe("TEST AUTH", () => {
 			method: "GET",
 			cache: "no-cache",
 			headers: new Headers({
-				"Authorization": "Bearer " + key,
+				Authorization: "Bearer " + key,
 				"Cache-Control": "no-cache, no-store, must-revalidate",
-				"X-Tasks-Owner-Id": ownerId
+				"X-Task-Id": taskId
 			})
 		});
 		expect(res.status).toBe(200);
@@ -84,22 +79,22 @@ describe("TEST AUTH", () => {
 			method: "GET",
 			cache: "no-cache",
 			headers: new Headers({
-				"Authorization": "Bearer invalid",
+				Authorization: "Bearer invalid",
 				"Cache-Control": "no-cache, no-store, must-revalidate",
-				"X-Tasks-Owner-Id": ownerId
+				"X-Task-Id": taskId
 			})
 		});
 		expect(res.status).toBe(403);
 	});
 
-	it("should unsuccessfully authentication process with an invalid owner id", async () => {
+	it("should unsuccessfully authentication process with an invalid task id", async () => {
 		const res = await api.request("/test/auth", {
 			method: "GET",
 			cache: "no-cache",
 			headers: new Headers({
-				"Authorization": "Bearer " + key,
+				Authorization: "Bearer " + key,
 				"Cache-Control": "no-cache, no-store, must-revalidate",
-				"X-Tasks-Owner-Id": "invalid"
+				"X-Task-Id": "invalid"
 			})
 		});
 		expect(res.status).toBe(403);

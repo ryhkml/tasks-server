@@ -6,7 +6,7 @@ PRAGMA temp_store = MEMORY;
 PRAGMA page_size = 8192;
 PRAGMA busy_timeout = 30000;
 
-CREATE TABLE owner (
+CREATE TABLE task (
 	id					TEXT UNIQUE PRIMARY KEY,
 	key					TEXT NOT NULL,
 	name				TEXT UNIQUE NOT NULL,
@@ -15,21 +15,21 @@ CREATE TABLE owner (
 	tasksInQueueLimit	INTEGER NULL DEFAULT 1000
 );
 
-CREATE INDEX idxIdName ON owner(id, name);
-CREATE INDEX idxIdNameTasksInQueue ON owner(id, name, tasksInQueue);
-CREATE INDEX idxIdTasksInQueueLimit ON owner(id, tasksInQueue, tasksInQueueLimit);
+CREATE INDEX idxIdName ON task(id, name);
+CREATE INDEX idxIdNameTasksInQueue ON task(id, name, tasksInQueue);
+CREATE INDEX idxIdTasksInQueueLimit ON task(id, tasksInQueue, tasksInQueueLimit);
 
 CREATE TRIGGER deleteUnusedQueue
-AFTER DELETE ON owner
+AFTER DELETE ON task
 BEGIN
-	DELETE FROM queue WHERE ownerId = OLD.id;
+	DELETE FROM queue WHERE taskId = OLD.id;
 END;
 
 --
 
 CREATE TABLE queue (
 	id						TEXT UNIQUE PRIMARY KEY,
-	ownerId 				TEXT NOT NULL,
+	taskId					TEXT NOT NULL,
 	state 					TEXT NULL DEFAULT 'RUNNING',
 	statusCode 				INTEGER NULL DEFAULT 0,
 	createdAt 				INTEGER NOT NULL,
@@ -37,32 +37,32 @@ CREATE TABLE queue (
 	estimateExecutionAt 	INTEGER NOT NULL,
 	response				TEXT NULL,
 	metadata				TEXT NULL,
-	FOREIGN KEY (ownerId) REFERENCES owner(id)
+	FOREIGN KEY (taskId) REFERENCES task(id)
 );
 
-CREATE INDEX idxOwnerId ON queue(ownerId);
+CREATE INDEX idxTaskId ON queue(taskId);
 CREATE INDEX idxState ON queue(state);
-CREATE INDEX idxIdStateOwnerId ON queue(id, state);
+CREATE INDEX idxIdStateTaskId ON queue(id, state);
 
 CREATE TRIGGER incrementTasksInQueue
 BEFORE INSERT ON queue
 WHEN NEW.state = 'RUNNING'
 BEGIN
-	UPDATE owner SET tasksInQueue = tasksInQueue + 1 WHERE id = NEW.ownerId;
+	UPDATE task SET tasksInQueue = tasksInQueue + 1 WHERE id = NEW.taskId;
 END;
 
 CREATE TRIGGER decrementTasksInQueue
 BEFORE UPDATE OF state ON queue
 WHEN NEW.state IN ('SUCCESS', 'REVOKED', 'ERROR') AND OLD.state = 'RUNNING'
 BEGIN
-	UPDATE owner SET tasksInQueue = tasksInQueue - 1 WHERE id = NEW.ownerId;
+	UPDATE task SET tasksInQueue = tasksInQueue - 1 WHERE id = NEW.taskId;
 	UPDATE config SET retrying = 0, estimateNextRetryAt = 0 WHERE id = NEW.id AND retrying = 1;
 END;
 
 CREATE TRIGGER deleteUnusedConfig
 AFTER DELETE ON queue
 BEGIN
-	UPDATE owner SET tasksInQueue = tasksInQueue - 1 WHERE id = OLD.ownerId AND OLD.state IN ('RUNNING', 'PAUSED');
+	UPDATE task SET tasksInQueue = tasksInQueue - 1 WHERE id = OLD.taskId AND OLD.state IN ('RUNNING', 'PAUSED');
 	DELETE FROM config WHERE id = OLD.id;
 END;
 

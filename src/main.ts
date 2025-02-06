@@ -17,7 +17,7 @@ import { isEmpty, safeInteger } from "./utils/common";
 import { MAX_INSTANCES } from "./utils/cluster";
 import { logInfo, logWarn } from "./utils/logger";
 
-import owner from "./apis/owner";
+import tasks from "./apis/task";
 import queue from "./apis/queue";
 
 type Socket = {
@@ -63,7 +63,7 @@ api.use(throttle);
 
 api.get("/status", (c) => c.text("OK"));
 
-api.basePath("/v1").route("/owners", owner);
+api.basePath("/v1").route("/tasks", tasks);
 api.basePath("/v1").route("/queues", queue);
 
 function read(path?: string): BunFile | undefined {

@@ -51,11 +51,11 @@ type TaskRequest = z.infer<typeof taskSchema>;
 type HttpRequest = TaskRequest["httpRequest"];
 type Config = TaskRequest["config"];
 
-type Queue = Omit<QueueTable, "ownerId" | "metadata"> & { metadata: RecordString | null };
-type QueueHistory = Pick<QueueTable, "ownerId" | "estimateEndAt" | "estimateExecutionAt" | "metadata"> & ConfigTable;
+type Queue = Omit<QueueTable, "taskId" | "metadata"> & { metadata: RecordString | null };
+type QueueHistory = Pick<QueueTable, "taskId" | "estimateEndAt" | "estimateExecutionAt" | "metadata"> & ConfigTable;
 type QueueResumable = {
+	taskId: string;
 	queueId: string;
-	ownerId: string;
 	dueTime: number | Date;
 	estimateExecutionAt: number;
 	metadata: RecordString | null;
@@ -77,8 +77,8 @@ queue.get(
 		}
 	}),
 	(c) => {
-		let sql = "SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt FROM queue WHERE ownerId = ?1";
-		const ownerId = c.get("ownerId");
+		let sql = "SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt FROM queue WHERE taskId = ?1";
+		const taskId = c.get("taskId");
 		const { limit, offset, order, sort, state } = c.req.valid("query")!;
 		if (state) {
 			sql += " AND state = ?2";
@@ -90,10 +90,10 @@ queue.get(
 		}
 		sql += " LIMIT ?4 OFFSET ?5";
 		const raw = tasksDb.query<
-			Omit<QueueTable, "ownerId" | "metadata" | "response">,
+			Omit<QueueTable, "taskId" | "metadata" | "response">,
 			[string, TaskState | null, string, number, number]
 		>(sql);
-		return c.json(raw.all(ownerId, state || null, order, limit, offset));
+		return c.json(raw.all(taskId, state || null, order, limit, offset));
 	}
 );
 
@@ -110,7 +110,7 @@ queue.get(
 	}),
 	(c) => {
 		const { queueId } = c.req.valid("param");
-		const raw = tasksDb.query<Omit<QueueTable, "ownerId">, string>(`
+		const raw = tasksDb.query<Omit<QueueTable, "taskId">, string>(`
 			SELECT id, state, createdAt, statusCode, estimateEndAt, estimateExecutionAt, response, metadata
 			FROM queue
 			WHERE id = ?
@@ -144,10 +144,10 @@ queue.post(
 	async (c, next) => {
 		const stmtTasksInQueue = tasksDb.query<{ status: "Ok" }, string>(`
 			SELECT 'Ok' AS status
-			FROM owner
+			FROM task
 			WHERE id = ? AND tasksInQueue < tasksInQueueLimit
 		`);
-		const status = stmtTasksInQueue.get(c.get("ownerId"));
+		const status = stmtTasksInQueue.get(c.get("taskId"));
 		if (status == null) {
 			throw new HTTPException(422, {
 				cause: "Tasks in queue has reached it's limit"
@@ -156,7 +156,7 @@ queue.post(
 		await next();
 	},
 	(c) => {
-		const queue = registerTask(c.req.valid("json"), c.get("todayAt"), c.get("ownerId"));
+		const queue = registerTask(c.req.valid("json"), c.get("todayAt"), c.get("taskId"));
 		return c.json(queue, 201);
 	}
 );
@@ -261,7 +261,7 @@ queue.patch(
 	(c) => {
 		const { queueId } = c.req.valid("param");
 		const raw1 = tasksDb.query<QueueHistory, [string, TaskState]>(`
-			SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
+			SELECT q.taskId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
 			FROM queue AS q
 			JOIN config AS c ON q.id = c.id
 			WHERE q.id = ?1 AND q.state = ?2
@@ -371,7 +371,7 @@ queue.delete(
 	}
 );
 
-function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queue {
+function registerTask(body: TaskRequest, todayAt: number, taskId: string): Queue {
 	let rawColumn = "INSERT INTO config (";
 	let rawValues = "VALUES (";
 	const queueId = todayAt.toString(16).toUpperCase() + todayAt.toString();
@@ -691,10 +691,10 @@ function registerTask(body: TaskRequest, todayAt: number, ownerId: string): Queu
 	tasksDb.transaction(() => {
 		tasksDb.run(
 			`
-			INSERT INTO queue (id, ownerId, createdAt, estimateExecutionAt, metadata)
+			INSERT INTO queue (id, taskId, createdAt, estimateExecutionAt, metadata)
 			VALUES (?1, ?2, ?3, ?4, ?5)
 		`,
-			[queueId, ownerId, todayAt, estimateExecutionAt, metadata]
+			[queueId, taskId, todayAt, estimateExecutionAt, metadata]
 		);
 		tasksDb.run(rawColumn + " " + rawValues, rawBindings);
 	})();
@@ -1021,7 +1021,7 @@ function resume(q: QueueHistory, endAt: number): QueueResumable {
 	const estimateExecutionAt = typeof dueTime === "number" ? addMilliseconds(resumeAt, dueTime).getTime() : dueTime.getTime();
 	return {
 		queueId: q.id,
-		ownerId: q.ownerId,
+		taskId: q.taskId,
 		estimateExecutionAt,
 		metadata: body.metadata ?? null,
 		dueTime,
@@ -1104,7 +1104,7 @@ function reschedule(): void {
 	if (clusterMode == "ACTIVE") {
 		if (cluster.isPrimary) {
 			const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
-				SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
+				SELECT q.taskId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
 				FROM queue AS q JOIN config AS c ON q.id = c.id
 				WHERE q.state = ?1
 				LIMIT ?2
@@ -1188,7 +1188,7 @@ function reschedule(): void {
 	//
 	if (clusterMode == "INACTIVE") {
 		const stmtQueuesHistory = tasksDb.prepare<QueueHistory, [TaskState, number, number]>(`
-			SELECT q.ownerId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
+			SELECT q.taskId, q.estimateEndAt, q.estimateExecutionAt, q.metadata, c.*
 			FROM queue AS q JOIN config AS c ON q.id = c.id
 			WHERE q.state = ?1
 			LIMIT ?2
