@@ -13,9 +13,7 @@ import {
 	catchError,
 	concatMap,
 	defer,
-	delayWhen,
 	EMPTY,
-	expand,
 	filter,
 	finalize,
 	interval,
@@ -24,7 +22,6 @@ import {
 	of,
 	retry,
 	switchMap,
-	take,
 	tap,
 	throwError,
 	timer
@@ -725,13 +722,19 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 		queueId,
 		merge(timer(dueTime), subjectForceExecute.pipe(filter((id) => id == queueId)))
 			.pipe(
-				expand((_, i) =>
-					defer(() => connectivity()).pipe(
-						delayWhen(() => (i == 0 ? timer(0) : timer(safeInteger(env.CONNECTIVITY_CHECK_INTERVAL))))
-					)
-				),
-				filter((connectivity) => connectivity == "ONLINE"),
-				take(1),
+				concatMap(() => {
+					return defer(() => connectivity()).pipe(
+						map((v) => {
+							if (v == "OFFLINE") {
+								throw "No internet connection";
+							}
+							return null;
+						}),
+						retry({
+							delay: () => timer(safeInteger(env.CONNECTIVITY_CHECK_INTERVAL))
+						})
+					);
+				}),
 				concatMap(() => {
 					let additionalHeaders = { "X-Tasks-Queue-Id": queueId } as RecordString;
 					return defer(() => http(body, additionalHeaders)).pipe(
