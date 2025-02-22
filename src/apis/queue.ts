@@ -22,6 +22,7 @@ import {
 	of,
 	retry,
 	switchMap,
+	take,
 	tap,
 	throwError,
 	timer
@@ -722,6 +723,7 @@ function setScheduler(body: TaskRequest, dueTime: number | Date, queueId: string
 		queueId,
 		merge(timer(dueTime), subjectForceExecute.pipe(filter((id) => id == queueId)))
 			.pipe(
+				take(1),
 				concatMap(() => {
 					return defer(() => connectivity()).pipe(
 						map((v) => {
