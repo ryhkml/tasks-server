@@ -52,10 +52,10 @@ tasks.post(
 			`,
 				[id, secretKey, name, todayAt]
 			);
+			return c.json({ id, key }, 201);
 		} catch (err) {
-			throw new HTTPException(422);
+			throw new HTTPException(500);
 		}
-		return c.json({ id, key }, 201);
 	}
 );
 
