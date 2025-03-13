@@ -118,24 +118,24 @@ You can use absolute path or current working path, for example:
 
 Each task name can have a maximum of 1000 tasks in queue.
 
--   ✅ `GET /v1/tasks/:name` - Get a task name
--   ✅ `DELETE /v1/tasks/:name` - Delete a task name
--   ✅ `POST /v1/tasks/register` - Register a task name to create a queue
+- ✅ `GET /v1/tasks/:name` - Get a task name
+- ✅ `DELETE /v1/tasks/:name` - Delete a task name
+- ✅ `POST /v1/tasks/register` - Register a task name to create a queue
 
 ### Queue
 
 A queue is a collection of tasks scheduled for later execution. Queues can be paused, resumed, and forced to execute.
 
--   ✅ `GET /v1/queues` - Get a list of all tasks in queue
--   ✅ `GET /v1/queues/:id` - Get a task in queue
--   ❌ `PATCH /v1/queues/:id` - Edit a task in queue
--   ✅ `DELETE /v1/queues/:id` - Delete a task history in queue
--   ❌ `GET /v1/queues/:id/config` - Get a task config in queue
--   ✅ `PATCH /v1/queues/:id/pause` - Pause a task in queue
--   ✅ `PATCH /v1/queues/:id/resume` - Resume a task in queue
--   ✅ `PATCH /v1/queues/:id/revoke` - Revoke a task in queue
--   ✅ `POST /v1/queues/register` - Register task execution
--   ✅ `POST /v1/queues/:id/execute` - Force execute a task in queue
+- ✅ `GET /v1/queues` - Get a list of all tasks in queue
+- ✅ `GET /v1/queues/:id` - Get a task in queue
+- ❌ `PATCH /v1/queues/:id` - Edit a task in queue
+- ✅ `DELETE /v1/queues/:id` - Delete a task history in queue
+- ❌ `GET /v1/queues/:id/config` - Get a task config in queue
+- ✅ `PATCH /v1/queues/:id/pause` - Pause a task in queue
+- ✅ `PATCH /v1/queues/:id/resume` - Resume a task in queue
+- ✅ `PATCH /v1/queues/:id/revoke` - Revoke a task in queue
+- ✅ `POST /v1/queues/register` - Register task execution
+- ✅ `POST /v1/queues/:id/execute` - Force execute a task in queue
 
 An example of requesting a task:
 
@@ -251,8 +251,8 @@ Tasks Server allows configuring custom certificates to modify the curl options [
 
 When running the Tasks Server in a container environment, you can
 
--   Create a volume. Just like the example above, adjust the path inside the container **or**
--   Use base64-encoded. To make it base64-encoded, you can use command
+- Create a volume. Just like the example above, adjust the path inside the container **or**
+- Use base64-encoded. To make it base64-encoded, you can use command
 
     ```sh
     cat /tmp/ca.crt | base64 -w 0
@@ -294,8 +294,8 @@ If there are multiple certificates, you can include them all in a single file:
 
 There are two backup methods:
 
--   **Local**. The local method copies the database file, then moves it to another directory. This method is active by default **or**
--   **Object Storage**. The [object storage](https://en.wikipedia.org/wiki/Object_storage) method uploads the database file to an object storage. To authenticate to Object Storage, a compatible authentication method is required.
+- **Local**. The local method copies the database file, then moves it to another directory. This method is active by default **or**
+- **Object Storage**. The [object storage](https://en.wikipedia.org/wiki/Object_storage) method uploads the database file to an object storage. To authenticate to Object Storage, a compatible authentication method is required.
 
 ```ts
 type SqliteBackupMethod = "LOCAL" | "OBJECT_STORAGE";
@@ -318,21 +318,22 @@ BACKUP_OBJECT_STORAGE_PATH=
 
 There are several lists of object storage compatibility:
 
--   Amazon S3
--   Google Cloud Storage
--   Cloudflare R2
--   DigitalOcean Spaces
--   MinIO **and** many more vendors
+- Amazon S3
+- Google Cloud Storage
+- Cloudflare R2
+- DigitalOcean Spaces
+- MinIO **and** many more vendors
 
 Visit [Bun S3](https://bun.sh/docs/api/s3#support-for-s3-compatible-services) documentation for information on Object Storage compatibility.
 
 ## TODO
 
--   [ ] Create documentation
--   [ ] Create an API for editing task
--   [ ] Create an API to get task configuration
--   [x] Backup SQLite database
--   [x] Create a mechanism to reschedule tasks if the server unexpected shutdown
--   [x] Create a [cluster](https://bun.sh/guides/http/cluster) of HTTP server (Linux only)
--   [ ] Enable test coverage configuration
--   [ ] Ensure test coverage reaches 90% or more
+- [ ] Create documentation
+- [ ] Create an API for editing task
+- [ ] Create an API to get task configuration
+- [ ] Create priority queue
+- [x] Backup SQLite database
+- [x] Create a mechanism to reschedule tasks if the server unexpected shutdown
+- [x] Create a [cluster](https://bun.sh/guides/http/cluster) of HTTP server (Linux only)
+- [ ] Enable test coverage configuration
+- [ ] Ensure test coverage reaches 90% or more
