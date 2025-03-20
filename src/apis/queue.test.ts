@@ -1,10 +1,11 @@
 import { env, fetch, password, sleep, write } from "bun";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, setSystemTime } from "bun:test";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 
 import { rm } from "node:fs/promises";
 
 import { Hono } from "hono";
 
+import { addSeconds, format } from "date-fns";
 import { customAlphabet } from "nanoid";
 import { ulid } from "ulid";
 import { z } from "zod";
@@ -746,10 +747,8 @@ describe("TEST QUEUE", () => {
 		});
 
 		describe("", () => {
-			beforeEach(() => {
-				setSystemTime(new Date("Dec 12 2012 12:00:00 PM"));
-			});
 			it("should successfully register and retry with specific date", async () => {
+				const next3Seconds = addSeconds(new Date(), 3);
 				const body: TaskRequest = {
 					httpRequest: {
 						url: env.DUMMY_TARGET_URL + "/error",
@@ -757,7 +756,7 @@ describe("TEST QUEUE", () => {
 					},
 					// @ts-expect-error
 					config: {
-						retryAt: "Dec 12 2012 12:00:02 PM"
+						retryAt: format(next3Seconds, "LLL d yyyy pp")
 					}
 				};
 				const res = await api.request("/v1/queues/register", {
@@ -779,9 +778,6 @@ describe("TEST QUEUE", () => {
 				const currentConfig = stmtRetryCount.get(queue.id);
 				expect(currentConfig?.retryCount).toBe(1);
 			});
-			afterEach(() => {
-				setSystemTime();
-			});
 		});
 
 		describe("", () => {
@@ -793,7 +789,7 @@ describe("TEST QUEUE", () => {
 					},
 					// @ts-expect-error
 					config: {
-						executeAt: "Dec 12 2012"
+						executeAt: "Dec 12 2024"
 					}
 				};
 				const res = await api.request("/v1/queues/register", {
@@ -821,7 +817,7 @@ describe("TEST QUEUE", () => {
 					// @ts-expect-error
 					config: {
 						executionDelay: 1,
-						retryAt: "Dec 12 2012"
+						retryAt: "Dec 12 2024"
 					}
 				};
 				const res = await api.request("/v1/queues/register", {
@@ -1131,6 +1127,7 @@ describe("TEST QUEUE", () => {
 		describe("", () => {
 			let queueId = "";
 			beforeEach(async () => {
+				const next3Seconds = addSeconds(new Date(), 3);
 				const body: TaskRequest = {
 					httpRequest: {
 						url: env.DUMMY_TARGET_URL,
@@ -1138,7 +1135,10 @@ describe("TEST QUEUE", () => {
 					},
 					// @ts-expect-error
 					config: {
-						executeAt: "Jan 1 6969",
+						executeAt: format(next3Seconds, "LLL d yyyy pp"),
+						// “executeImmediately” is an execution that has exceeded the original execution date.
+						// This happens during resume, if the execution date exceeds the date during resume, the task will still be executed.
+						// Make sure you set “executeImmediately” to true
 						executeImmediately: true
 					}
 				};
@@ -1165,9 +1165,9 @@ describe("TEST QUEUE", () => {
 						"X-Task-Id": taskId
 					})
 				});
-				setSystemTime(new Date("Jan 2 6969"));
 			});
 			it("should successfully resume with execute immediately", async () => {
+				await sleep(5000);
 				const res = await api.request("/v1/queues/" + queueId + "/resume", {
 					method: "PATCH",
 					cache: "no-cache",
@@ -1186,7 +1186,6 @@ describe("TEST QUEUE", () => {
 				expect(currentQueue.state).toBe("SUCCESS");
 			});
 			afterEach(async () => {
-				setSystemTime();
 				await api.request("/v1/queues/" + queueId, {
 					method: "DELETE",
 					cache: "no-cache",
